@@ -1,0 +1,131 @@
+---
+title: "Le vote des QPV"
+subtitle: "dans la métropole de Lyon"
+author: "Auteur"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+    rmarkdown::html_document:
+      #number_sections: true
+      theme: paper
+      toc: true
+      toc_depth: 4
+      collapsed: true
+      smooth_scroll: true
+      css: styles.css
+      includes:
+        in_header: header.html
+        after_body: footer.html
+---
+
+```{r setup, include=FALSE}
+# Paramètres généraux
+knitr::opts_chunk$set(
+	eval = TRUE,
+	echo = FALSE,
+	fig.align = "center",
+	fig.show = "hold",
+	message = FALSE,
+	warning = FALSE,
+	collapse = TRUE,
+	out.width = "100%",
+	results = "asis"
+)
+```
+
+```{r logo}
+# Logo Datactivist haut de page
+htmltools::img(src = "https://nextcloud.datactivist.coop/s/o53wzfMNnFosQni/preview", 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; left:0.5; padding-top:10px;') #padding=taille des espaces autour
+```
+
+```{r packages}
+library(sf)
+library(httr)
+library(here)
+library(tidyverse)
+```
+
+
+# Calcul des contours des BV
+
+- on va utiliser ce qui existe déjà, en open data ou dans Cartelec (mais a priori Cartelec ne va pas beaucoup aider). 
+- on n'a ainsi besoin de calculer les contours des BV uniquement pour les communes pas couvertes par open data ou Cartelec ET dans lesquelles il y a un QPV.
+
+```{r communes_grand_lyon}
+
+communes_gd_lyon <- read_csv2("https://download.data.grandlyon.com/ws/grandlyon/adr_voie_lieu.adrcomgl/all.csv?maxfeatures=100&start=1")
+
+communes_gd_lyon_shp <- GET(URLencode("https://download.data.grandlyon.com/wfs/grandlyon?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=adr_voie_lieu.adrcomgl&outputFormat=application/json; subtype=geojson&SRSNAME=EPSG:4171"))
+communes_gd_lyon_shp <- content(communes_gd_lyon_shp, as = "text")
+communes_gd_lyon_shp <- st_read(communes_gd_lyon_shp, drivers = "GeoJSON")
+
+```
+
+```{r open_data_2022}
+bv_gd_lyon_OD_2022 <- GET(URLencode("https://download.data.grandlyon.com/wfs/grandlyon?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=ter_territoire.terbureauvoteperim&outputFormat=application/json; subtype=geojson&SRSNAME=EPSG:4171"))
+
+bv_gd_lyon_OD_2022 <- content(bv_gd_lyon_OD_2022, as = "text")
+bv_gd_lyon_OD_2022 <- st_read(bv_gd_lyon_OD_2022)
+
+# enlever les rues dont on n'a pas besoin
+bv_gd_lyon_OD_2022 <- bv_gd_lyon_OD_2022 %>% 
+  select(-rues)
+
+# communes pour lesquelles on dispose des données
+
+communes_OD_2022 <- bv_gd_lyon_OD_2022 %>% 
+  as_tibble() %>% 
+  distinct(insee, commune)
+
+# attention à Lyon (commune : 69123 vs arrondissements : 69381 à 69389)
+communes_OD_2022 <- communes_OD_2022 %>% 
+  mutate(insee = case_when(insee %in% as.character(69381:69389) ~ "69123",
+                           TRUE ~ insee)) %>% 
+  distinct(insee)
+
+```
+
+```{r cartelec}
+
+cartelec_2017 <- st_read(here("data", "bv_2017.gpkg"))
+communes_cartelec_2017 <- cartelec_2017 %>% 
+  filter(codedep %in% "69") %>% 
+  as_tibble() %>% 
+  distinct(CodeINSEE, libelle_commune)
+communes_cartelec_2017 <- communes_cartelec_2017 %>% 
+  mutate(CodeINSEE = case_when(CodeINSEE %in% as.character(69381:69389) ~ "69123",
+                           TRUE ~ CodeINSEE))
+```
+
+```{r qpv}
+
+qpv <- st_read(here("data", "QP_METROPOLE_LB93.shp"))
+communes_qpv <- communes_gd_lyon_shp %>% 
+  st_transform(st_crs(qpv)) %>% 
+  st_intersects(qpv)
+communes_qpv <- communes_gd_lyon_shp %>% 
+  as_tibble() %>% 
+  filter(map_lgl(communes_qpv, ~ length(.) > 0))
+  
+```
+
+
+```{r a_produire}
+
+
+# 2022
+aproduire_2022 <- communes_gd_lyon %>% # communes du grand lyon
+  mutate(insee = as.character(insee)) %>% 
+  anti_join(communes_OD_2022, by = "insee") %>% # qui ne sont pas déjà couvertes en OD
+  inner_join(communes_qpv, by = "insee") # et qui sont en QPV
+
+# 2017
+aproduire_2017 <- communes_gd_lyon %>% # communes du grand lyon
+  mutate(insee = as.character(insee)) %>% 
+  anti_join(communes_cartelec_2017, by = c("insee" = "CodeINSEE")) %>% # qui ne sont pas déjà couvertes en OD
+  inner_join(communes_qpv, by = "insee") # et qui sont en QPV
+
+```
+
+

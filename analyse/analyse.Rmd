@@ -128,4 +128,56 @@ aproduire_2017 <- communes_gd_lyon %>% # communes du grand lyon
 
 ```
 
+```{r import_listes_2017}
+# dans le fichier original quelques guillemets trainaient, on les supprime :
+# sed 's/"//g' liste\ électorale\ 2017\ Rhône.csv > liste_electorale_2017.csv
+liste_2017 <- read_csv2(here("data/listes électorales", "liste_electorale_2017.csv"), col_select = c("numéro du bureau de vote", "NumeroVoie", "LibelleVoie", "Code postal", "VilleLocalite", "Code INSEE"), col_types = "cccccc")
+```
 
+```{r import_listes_2022}
+codes <- aproduire_2022 %>% magrittr::extract2("insee")
+
+fichiers <- fs::dir_ls(here("data", "listes électorales", "listes 2022"))
+fichiers <- fichiers[str_detect(fichiers, paste0(codes, collapse = "|"))]
+
+liste_2022 <- map_df(fichiers, 
+                     ~ read_csv2(., col_select = c("code du bureau de vote", "numéro de voie", "libellé de voie", "code postal", "commune"), col_types = cols(.default = col_character())))
+
+# le code insee n'est pas fourni par défaut... on le rajoute
+
+source(here("functions", "match_commune.R"))
+
+mem_match_commune <- memoise::memoise(match_commune, cache = memoise::cache_filesystem(here("cache")))
+
+liste_2022 <- liste_2022 %>% 
+  rowwise() %>% 
+  mutate(code_insee = mem_match_commune(commune, "69")) %>% 
+  filter(!is.na(code_insee)) %>% 
+  ungroup()
+
+```
+
+
+```{r source_create_bv}
+source(here("functions", "create_bv.R"))
+mem_create_bv <- memoise::memoise(create_bv, cache = memoise::cache_filesystem(here("cache")))
+```
+
+
+```{r calcul_bv_2017}
+
+bv_2017_produits <- aproduire_2017 %>% 
+  magrittr::extract2("insee") %>% 
+  map_df(~ create_bv(liste_2017, code_insee_commune = ., seuil = 0.6))
+
+st_write(bv_2017_produits, here("output_data", "bv_produits_2017.gpkg"))
+
+```
+
+```{r calcul_bv_2022}
+
+bv_2022_produits <- aproduire_2022 %>% 
+  magrittr::extract2("insee") %>% 
+  map_df(~ create_bv(liste_2022, code_insee_commune = ., seuil = 0.6, code_insee = code_insee, numero_voie = `numéro de voie`, libelle_voie = `libellé de voie`, code_bv = `code du bureau de vote`))
+st_write(bv_2022_produits, here("output_data", "bv_produits_2022.gpkg"))
+```

@@ -89,6 +89,7 @@ communes_OD_2022 <- communes_OD_2022 %>%
 ```{r cartelec}
 
 cartelec_2017 <- st_read(here("data", "bv_2017.gpkg"))
+cartelec_2017 <- cartelec_2017 %>% st_transform(4326)
 communes_cartelec_2017 <- cartelec_2017 %>% 
   filter(codedep %in% "69") %>% 
   as_tibble() %>% 
@@ -180,4 +181,52 @@ bv_2022_produits <- aproduire_2022 %>%
   magrittr::extract2("insee") %>% 
   map_df(~ create_bv(liste_2022, code_insee_commune = ., seuil = 0.6, code_insee = code_insee, numero_voie = `numéro de voie`, libelle_voie = `libellé de voie`, code_bv = `code du bureau de vote`))
 st_write(bv_2022_produits, here("output_data", "bv_produits_2022.gpkg"))
+```
+
+```{r assemblage_2017}
+bv_2017 <- bind_rows(
+  bv_2017_produits %>% 
+    mutate(code_insee = str_sub(bureau_vote_id, 1, 5)) %>% 
+    rename(geom = voronois),
+  cartelec_2017 %>% 
+    filter(codedep %in% "69") %>% 
+    select(code_insee = CodeINSEE, bureau_vote_id, geom)
+  )
+
+bv_communes_2017 <- bind_rows(
+  bv_2017 %>% 
+    mutate(id = bureau_vote_id, 
+           type = "bv"),
+  communes_gd_lyon_shp %>% 
+    anti_join(aproduire_2017, by = "insee") %>% 
+    anti_join(communes_cartelec_2017, by = c("insee" = "CodeINSEE")) %>% 
+    select(code_insee = insee, geom = geometry) %>% 
+    mutate(id = code_insee,
+           type = "commune")
+)
+st_write(bv_communes_2017, here("output_data", "bv_communes_2017.gpkg"))
+```
+
+```{r assemblage_2022}
+bv_2022 <- bind_rows(
+  bv_2022_produits %>% 
+    mutate(code_insee = str_sub(bureau_vote_id, 1, 5)) %>% 
+    rename(geom = voronois),
+  bv_gd_lyon_OD_2022 %>% 
+    mutate(bureau_vote_id = paste0(insee, str_pad(numero, 4, "left", "0"))) %>% 
+    select(code_insee = insee, bureau_vote_id, geom = geometry)
+  )
+
+bv_communes_2022 <- bind_rows(
+  bv_2022 %>% 
+    mutate(id = bureau_vote_id, 
+           type = "bv"),
+  communes_gd_lyon_shp %>% 
+    anti_join(aproduire_2022, by = "insee") %>% 
+    anti_join(communes_OD_2022, by = "insee") %>% 
+    select(code_insee = insee, geom = geometry) %>% 
+    mutate(id = code_insee,
+           type = "commune")
+)
+st_write(bv_communes_2022, here("output_data", "bv_communes_2022.gpkg"))
 ```

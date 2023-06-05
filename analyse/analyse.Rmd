@@ -196,6 +196,7 @@ bv_2022_produits <- aproduire_2022 %>%
   magrittr::extract2("insee") %>% 
   map_df(~ create_bv(liste_2022, code_insee_commune = ., seuil = 0.6, code_insee = code_insee, numero_voie = `numéro de voie`, libelle_voie = `libellé de voie`, code_bv = `code du bureau de vote`))
 st_write(bv_2022_produits, here("output_data", "bv_produits_2022.gpkg"))
+# bv_2022_produits <- st_read(here("output_data", "bv_produits_2022.gpkg"))
 ```
 
 ```{r assemblage_2017}
@@ -316,7 +317,8 @@ qpv_gd_lyon <- qpv69 %>% slice(which(map_lgl(qpv69 %>% st_intersects(communes_gd
 
 
 # puis procéder à la répartition
-qpv69_pres_17_t1 <- tidycensus::interpolate_pw(from = bv_grandyon_p2017_t1_res, to = qpv_gd_lyon, to_id = "CODE_QP", extensive = TRUE, weights = poids_2017, weight_column = "n")
+qpv69_pres_17_t1 <- tidycensus::interpolate_pw(from = bv_grandyon_p2017_t1_res %>% select(- contains("_ins"), -contains("_exp"), -contains("_vot")), to = qpv_gd_lyon, to_id = "CODE_QP", extensive = TRUE, weights = poids_2017, weight_column = "n")
+
 
 ```
 

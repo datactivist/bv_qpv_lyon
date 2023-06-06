@@ -25,6 +25,14 @@ create_bv <- function(liste, code_insee_commune, seuil = 0.9, code_bv = `numéro
   enveloppe <- sf::st_read(content(contour, as = "text"), quiet = TRUE)
   enveloppe <- enveloppe %>% 
     select(-codesPostaux)
+
+  # s'il n'y a qu'un BV dans la commune, renvoyer la commune
+  
+  if (liste %>% distinct({{code_bv}}) %>% nrow() %in% 1) {
+    return(
+      st_sf(bureau_vote_id = paste0(code_insee_commune, "0001"), voronois = enveloppe$geometry, sf_column_name = "voronois")
+    )
+  }
   
   
   # géocoder les adresses

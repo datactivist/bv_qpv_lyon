@@ -1,0 +1,227 @@
+---
+title: "Le vote des quartiers politique de la ville de la Métropole de Lyon"
+subtitle: "Sous-titre du document"
+author: "Datactivist"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+    rmarkdown::html_document:
+      #number_sections: true
+      theme: paper
+      toc: true
+      toc_depth: 4
+      collapsed: true
+      smooth_scroll: true
+      css: !expr here::here("préparation/styles.css")
+      includes:
+        in_header: !expr here::here("préparation/header.html")
+        after_body: !expr here::here("préparation/footer.html")
+---
+
+```{r setup, include=FALSE}
+# Paramètres généraux
+knitr::opts_chunk$set(
+	eval = TRUE,
+	echo = FALSE,
+	fig.align = "center",
+	fig.show = "hold",
+	message = FALSE,
+	warning = FALSE,
+	collapse = TRUE,
+	out.width = "100%",
+	results = "asis"
+)
+```
+
+```{r logo}
+# Logo Datactivist haut de page
+htmltools::img(src = "https://nextcloud.datactivist.coop/s/o53wzfMNnFosQni/preview", 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; left:0.5; padding-top:10px;') #padding=taille des espaces autour
+```
+
+# Préambule
+
+```{r libraries et données, include=FALSE}
+# Librairies
+library(tidyverse)
+library(sf)
+library(here)
+library(gridExtra)
+#remotes::install_github("r-spatial/mapview", dependencies = TRUE)
+library(mapview)
+library(leafpop)
+library(leafsync)
+library(ggtext)
+
+# Données
+bv_communes_2017 <- st_read(here("data/output_data", "bv_communes_2017.gpkg"))
+bv_communes_2022 <- st_read(here("data/output_data", "bv_communes_2022.gpkg"))
+qpv_pres_17_t1 <- st_read(here("data/output_data", "qpv69_pres_17_t1.gpkg"))
+qpv_pres_22_t1 <- st_read(here("data/output_data", "qpv69_pre_22_t1.gpkg"))
+L_2017_t1 <- st_read(here("data/process_data", "L_2017_t1.gpkg"))
+P_2017_t1 <- st_read(here("data/process_data", "P_2017_t1.gpkg"))
+P_2017_t2 <- st_read(here("data/process_data", "P_2017_t2.gpkg"))
+P_2022_t1 <- st_read(here("data/process_data", "P_2022_t1.gpkg"))
+P_2022_t2 <- st_read(here("data/process_data", "P_2022_t2.gpkg"))
+
+rbindlist_fread <- function(path, pattern = "*.gpkg") {
+    files = list.files(path, pattern, full.names = TRUE)
+    data.table::rbindlist(lapply(files, function(x) fread(x)))
+}
+data <- rbindlist_fread("data/process_data")
+```
+
+```{r nouveaux BV}
+# Jointure des 2 bases pour voir les différences
+bv_communes_2017_df <- as.data.frame(bv_communes_2017)
+bv_communes_2022_df <- as.data.frame(bv_communes_2022) #dataframe
+bv_communes_full <- bv_communes_2017_df |> full_join(bv_communes_2022_df, by = "bureau_vote_id", suffix = c("_2017", "_2022"))
+
+# Création d'une variable qui identifie les BV
+bv_communes_full <- bv_communes_full |>
+    mutate(new_bv = case_when(
+        id_2017 == id_2022 ~ "Bureaux de votes identiques",
+        is.na(id_2017) ~ "Bureaux de votes créés",
+        is.na(id_2022) ~ "Bureaux de votes supprimés",
+        .default = NA))
+
+# Visualisation des découpages 2017 vs. 2022
+bv_temps <- rbind(bv_communes_full |> select(geom_2017) |> rename(geom = geom_2017) |> mutate(annee = "2017",
+                                                                                              type = "Bureaux de votes identiques"),
+                  bv_communes_full |> select(geom_2017) |> rename(geom = geom_2017) |> mutate(annee = "2022",
+                                                                                              type = "Bureaux de votes identiques"),
+                  bv_communes_full |> filter(new_bv == "Bureaux de votes créés") |> select(geom_2022) |> 
+                      rename(geom = geom_2022) |> mutate(annee = "2022", type = "Bureaux de votes créés"))
+
+bv_temps |> 
+    ggplot() +
+        geom_sf(aes(geometry = geom, fill = type)) +
+        scale_fill_manual(values = c("Bureaux de votes identiques" = "wheat2", "Bureaux de votes créés" = "brown3")) +
+        labs(title = "Localisation des bureaux de votes de la métropole de Lyon", 
+             subtitle = "Entre 2017 et 2022, 359 bureaux de vote (BV) sont restés identiques, \n537 ont été créés et 331 ont été supprimés.", 
+             fill = "",
+             caption = "Données extraites de la plateforme du GrandLyon \nSource: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon entre 2017 et 2022") +
+        facet_wrap(~annee) +
+        theme_void() +
+        guides(fill = guide_legend(override.aes = list(lwd = 1, col = "white"))) +
+        theme(plot.title = element_text(face = "bold"),
+              plot.caption = element_text(face = "italic", hjust = 1),
+              strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
+```
+
+```{r}
+# Même dataviz interactive
+    # prépa données
+bv_communes_2017 <- bv_communes_2017_df |>
+    mutate(type = case_when(
+        type == "bv" ~ "Bureau de vote",
+        type == "commune" ~ "Commune",
+        .default = NA)) |> 
+    st_as_sf()
+bv_communes_full_2022 <- bv_communes_full |> 
+    select("bureau_vote_id","code_insee_2022","id_2022","type_2022", "geom_2022","new_bv") |>
+    filter(new_bv %in% c("Bureaux de votes créés", "Bureaux de votes identiques")) |> 
+    st_as_sf()
+    # carte
+p2017 <- bv_communes_2017 |> 
+    mapview(zcol = "type",
+    layer.name = "Bureaux de votes aux éléctions de 2017",
+    legend = TRUE, 
+    col.regions = c("Bureau de vote" = "wheat1", "Commune" = "salmon"),
+    popup = popupTable(bv_communes_2017, zcol = c("id")))
+p2022 <- bv_communes_full_2022 |> 
+    mapview(zcol = "new_bv",
+    layer.name = "Bureaux de votes aux éléctions de 2022",
+    legend = TRUE,
+    col.regions = c("Bureaux de votes créés" = "brown3", "Bureaux de votes identiques" = "wheat2"),
+    popup = popupTable(bv_communes_full_2022, zcol = c("id_2022"))) 
+sync(p2017,p2022)
+p2017 | p2022
+```
+
+`r nrow(bv_communes_2017)` bureaux de vote en 2017 et `r nrow(bv_communes_2022)` en 2022, soit `r nrow(bv_communes_2022) - nrow(bv_communes_2017)` de différence. 
+
+# Présentation des données
+
+```{r loc QPV, echo=FALSE}
+# Test pour voir si QPV redécoupés
+#identical(qpv_pres_17_t1$CODE_QPV, qpv_pres_22_t1$CODE_QPV)
+#identical(qpv_pres_17_t1$geom, qpv_pres_22_t1$geom)
+
+# Prépa données
+bv_qpv <- rbind(P_2017_t1 |> select(id, type, geom) |> mutate(annee = "2017"),
+                bv_communes_2017 |> filter(type == "Commune") |> select(id, type,  geom) |> mutate(annee = "2017"),
+                P_2022_t1 |> select(id, type, geom) |> mutate(annee = "2022")) |> 
+    mutate(type = str_replace_all(type, c("Bureaux de vote|Commune" = "Bureaux de vote, communes")))
+                
+
+# Visualisation des QPV 2017 vs. 2022
+bv_qpv |> 
+    ggplot() +
+        geom_sf(aes(geometry = geom, fill = type)) +
+        scale_fill_manual(values = c("Bureaux de vote, communes" = "wheat2", "Quartiers prioritaires" = "brown3")) +
+        labs(title = "Localisation des quartiers prioritaires de la ville de Lyon \nparmi les bureaux de vote", 
+             subtitle = "Le découpage des quartiers prioritaires n'a pas évolué entre 2017 et 2022.", fill = "",
+             caption = "Données extraites de la plateforme du GrandLyon \nSource: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon entre 2017 et 2022") +
+        facet_wrap(~annee) +
+        theme_void() +
+        guides(fill = guide_legend(override.aes = list(lwd = 1, col = "white"))) +
+        theme(plot.title = element_text(face = "bold"),
+              plot.caption = element_text(face = "italic", hjust = 0),
+              strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
+```
+
+<br>
+
+```{r Distrib votes BV/QPV}
+# Viz
+boxplot_comp <- function(data, elections, interpretation){
+    data |> 
+        as.data.frame() |> 
+        select(-geom) |> 
+        select(id, type, ends_with(c("_ins"))) |> 
+        pivot_longer(cols = -c(id, type), values_to = "percent_inscrits", names_to = "vote") |> 
+        mutate(vote = str_replace_all(vote, "_|ins", ""),
+               vote = paste(toupper(substring(vote, 1, 1)), substring(vote, 2), sep = ""),
+               vote = fct_reorder(vote, percent_inscrits)) |> 
+        ggplot(aes(x = vote, y = percent_inscrits, fill = type)) +
+            geom_boxplot(linewidth = .3, outlier.size = .4) +
+            facet_wrap(~type) +
+            scale_fill_manual(values = c("Bureaux de vote" = "wheat2", "Quartiers prioritaires" = "brown3")) +
+            labs(title = paste0("Comparaison de la distribution des votes entre BV et QPV \n", elections), 
+                 subtitle = interpretation, fill = "",
+                 caption = "Données extraites de la plateforme du GrandLyon \nSource: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon entre 2017 et 2022",
+                 y = "Pourcentage d'inscrits", x = "Vote") +
+            coord_flip() +
+            theme_light() +
+            theme(plot.title = element_text(face = "bold"),
+                  plot.caption = element_text(face = "italic", hjust = 0),
+                  strip.text = element_text(color = "black", face = "bold"),
+                  legend.position = "none")
+}
+boxplot_comp(L_2017_t1, "au premier tour des législatives de 2017", "")
+boxplot_comp(P_2017_t1, "au premier tour des présidentielles de 2017", "")
+boxplot_comp(P_2017_t2, "au second tour des présidentielles de 2017", "")
+boxplot_comp(P_2022_t1, "au premier tour des présidentielles de 2022", "")
+boxplot_comp(P_2022_t2, "au second tour des présidentielles de 2022", "")
+```
+
+```{r}
+
+```
+
+
+- cartes des principaux comportements électoraux pour les 6 scrutins (P17T1, P17T2, L17T1, P22T1, P22T2, L22T1), par BV, avec QPV en surimposition
+
+# Comparaison QPV / Métropole de Lyon
+
+- ACP avec en individus actifs les BV en 2017 (avec variables actives les résultats pour P17T1, P17T2 et L17T1, P22T1, P22T2, L22T1 en variables supplémentaires) et les BV 2022 et les QPV (2017 et 2022) en individus supplémentaires (éventuellement en pondérant les individus statistiques par le nombre d'inscrits, mais ça ne devrait pas changer grand chose)
+
+- comparaison de la distribution du vote pour chaque comportement principal par BV entre l'ensemble des BV de la Métropole et les QPV (avec `geom_dotplot` par exemple)
+
+# Evolution du vote au sein des QPV
+
+- graphique avec en abscisse 4 scrutins (P17T1, L17T1, P22T1, L22T1) et en ordonnée le vote, et une ligne par grand comportement électoral (ou alors un graphique par comportement électoral, avec `geom_facet`, ce qui permet de rajouter en repère le comportement national et celui de l'ensemble de la Métropole de Lyon) 
+
+
+

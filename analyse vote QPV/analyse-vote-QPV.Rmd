@@ -105,7 +105,7 @@ bv_temps |>
         theme_void() +
         guides(fill = guide_legend(override.aes = list(lwd = 1, col = "white"))) +
         theme(plot.title = element_text(face = "bold"),
-              plot.caption = element_text(face = "italic", hjust = 1),
+              plot.caption = element_text(face = "italic", hjust = 0),
               strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
 ```
 
@@ -124,17 +124,20 @@ bv_communes_full_2022 <- bv_communes_full |>
     st_as_sf()
     # carte
 p2017 <- bv_communes_2017 |> 
+    mutate(type = str_replace_all(type, c("bv" = "Bureaux de vote", "commune" = "Communes"))) |> 
     mapview(zcol = "type",
-    layer.name = "Bureaux de votes aux éléctions de 2017",
+    layer.name = "Bureaux de votes en 2017",
     legend = TRUE, 
-    col.regions = c("Bureau de vote" = "wheat1", "Commune" = "salmon"),
-    popup = popupTable(bv_communes_2017, zcol = c("id")))
+    basemaps.color.shuffle = FALSE, map.types = "CartoDB.Positron",
+    col.regions = c("Bureau de vote" = "wheat1", "Commune" = "wheat3"),
+    popup = popupTable(bv_communes_2017, zcol = c("code_insee")))
 p2022 <- bv_communes_full_2022 |> 
     mapview(zcol = "new_bv",
-    layer.name = "Bureaux de votes aux éléctions de 2022",
-    legend = TRUE,
+    layer.name = "Bureaux de votes en 2022",
+    legend = TRUE, 
+    basemaps.color.shuffle = FALSE, map.types = "CartoDB.Positron",
     col.regions = c("Bureaux de votes créés" = "brown3", "Bureaux de votes identiques" = "wheat2"),
-    popup = popupTable(bv_communes_full_2022, zcol = c("id_2022"))) 
+    popup = popupTable(bv_communes_full_2022, zcol = c("code_insee_2022"))) 
 sync(p2017,p2022)
 p2017 | p2022
 ```

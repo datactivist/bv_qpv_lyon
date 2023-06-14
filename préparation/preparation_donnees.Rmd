@@ -172,10 +172,10 @@ mem_create_bv <- memoise::memoise(create_bv, cache = memoise::cache_filesystem(h
 
 bv_2017_produits <- aproduire_2017 %>% 
   magrittr::extract2("insee") %>% 
-  map_df(~ create_bv(liste_2017, code_insee_commune = ., seuil = 0.6))
+  map_df(~ create_bv(liste_2017, code_bv = , code_insee_commune = ., seuil = 0.6))
 
-st_write(bv_2017_produits, here("output_data", "bv_produits_2017.gpkg"))
-
+st_write(bv_2017_produits, here("output_data", "bv_produits_2017.gpkg"), append = FALSE)
+# bv_2017_produits <- st_read(here("output_data", "bv_produits_2017.gpkg"))
 ```
 
 ```{r weights_2017}
@@ -186,7 +186,7 @@ poids_2017 <- liste_2017 %>%
   mutate(bv = as.character(`numéro du bureau de vote`)) %>% 
   mutate(adresse = paste0(NumeroVoie, " ", LibelleVoie)) %>% 
   count(adresse, `Code INSEE`) %>% 
-  m_geocode_tbl(adresse = adresse, code_insee = `Code INSEE`)
+  geocode_tbl(adresse = adresse, code_insee = `Code INSEE`)
 poids_2017 <- poids_2017 %>% 
     filter(!is.na(longitude), !is.na(latitude)) %>% 
     st_as_sf(coords = c("longitude", "latitude")) %>% 
@@ -224,26 +224,13 @@ poids_2022 <- poids_2022 %>%
 ```{r assemblage_2017}
 bv_2017 <- bind_rows(
   bv_2017_produits %>% 
-    mutate(code_insee = str_sub(bureau_vote_id, 1, 5)) %>% 
-    rename(geom = voronois),
+    mutate(code_insee = str_sub(bureau_vote_id, 1, 5)) ,
   cartelec_2017 %>% 
     filter(codedep %in% "69") %>% 
     select(code_insee = CodeINSEE, bureau_vote_id, geom)
   )
 
-bv_communes_2017 <- bind_rows(
-  bv_2017 %>% 
-    mutate(id = bureau_vote_id, 
-           type = "bv"),
-  communes_gd_lyon_shp %>% 
-    anti_join(aproduire_2017, by = "insee") %>% 
-    anti_join(communes_cartelec_2017, by = c("insee" = "CodeINSEE")) %>% 
-    select(code_insee = insee, geom = geometry) %>% 
-    mutate(id = code_insee,
-           type = "commune")
-)
-st_write(bv_communes_2017, here("output_data", "bv_communes_2017.gpkg"))
-# bv_communes_2017 <- st_read(here("output_data", "bv_communes_2017.gpkg"))
+st_write(bv_2017, here("output_data", "bv_2017.gpkg"), append = FALSE)
 ```
 
 ```{r assemblage_2022}
@@ -263,7 +250,9 @@ st_write(bv_communes_2022, here("output_data", "bv_communes_2022.gpkg"), append 
 
 # présidentielles 2017 T1
 
-presidentielle_2017_t1_bv <- read_csv("https://www.data.gouv.fr/fr/datasets/r/f4c23dab-46ff-4799-b217-1ab29db7938b")
+# presidentielle_2017_t1_bv <- read_csv("https://www.data.gouv.fr/fr/datasets/r/f4c23dab-46ff-4799-b217-1ab29db7938b")
+presidentielle_2017_t1_bv <- read_csv("https://nextcloud.datactivist.coop/s/i2Z6Cc9LZqQHm3f/download/Presidentielle_2017_Resultats_BV_T1_clean_def.csv")
+
 
 # présidentielles 2017 T2
 
@@ -283,12 +272,43 @@ write_excel_csv(presidentielle_2017_t2_bv, here("data", "presidentielle_2017_t2_
 
 # législatives 2017 T1
 
-download.file("https://www.data.gouv.fr/fr/datasets/r/80cb1309-9147-4bae-b6e2-79877d549b50", destfile = here("data", "legislatives_2017_T1_bv.csv"))
+path_leg_2017_t1 <- fs::fs_path(here("data", "legislatives_2017_T1_bv.csv"))
 
-header_L17T1 <- names(read_csv2(here("data", "legislatives_2017_T1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), n_max = 1))
-n_col <- ncol(read_csv2(here("data", "legislatives_2017_T1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), skip = 1, col_names =FALSE))
+# si besoin
+# download.file("https://www.data.gouv.fr/fr/datasets/r/80cb1309-9147-4bae-b6e2-79877d549b50", destfile = path_leg_2017_t1)
+
+header_L17T1 <- names(read_csv2(path_leg_2017_t1, locale = locale(encoding = "ISO-8859-1"), n_max = 1))
+
+# n_col <- system2(paste0("awk  '{FS = \";\"} ; {print NF}' ", path_leg_2017_t1," | sort -nu | tail -n 1"))
+
+n_col <- 237  
+                
 nrep <- (n_col-21) / 8
-legislatives_2017_t1_bv <- read_csv2(here("data", "legislatives_2017_T1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), skip = 1, col_names = c(header_L17T1[-c(22:29)], paste0(rep(c("no_panneau", "sexe", "nom", "prenom", "nuance", "voix", "voix_ins", "voix_exp"), nrep), "_", rep(seq(1:nrep), each = 8))))
+
+col_names <- c(header_L17T1[-c(22:29)], paste0(rep(c("no_panneau", "sexe", "nom", "prenom", "nuance", "voix", "voix_ins", "voix_exp"), nrep), "_", rep(seq(1:nrep), each = 8)))
+
+col_types_int <- vector("list", nrep + 5)
+col_types_int <- map(col_types_int, ~ col_integer())
+names(col_types_int) <- c("Inscrits", "Abstentions", "Votants", "Blancs", "Nuls", paste0("voix_", 1:nrep))
+
+colClassesInt <- vector("list", nrep + 5)
+colClassesInt <- map(colClassesInt, ~ "integer")
+names(colClassesInt) <- c("Inscrits", "Abstentions", "Votants", "Blancs", "Nuls", paste0("voix_", 1:nrep))
+
+col_types_char <- vector("list", n_col - length(col_types_int)) 
+col_types_char <- map(col_types_char, ~ col_character())
+names(col_types_char) <- col_names[-which(col_names %in% names(col_types_int))]
+
+colClassesChar <- vector("list", n_col - length(col_types_int)) 
+colClassesChar <- map(colClassesChar, ~ "character")
+names(colClassesChar) <- col_names[-which(col_names %in% names(col_types_int))]
+
+# sed -i '1c\Code du département;Libellé du département;Code de la circonscription;Libellé de la circonscription;Code de la commune;Libellé de la commune;Code du b.vote;Inscrits;Abstentions;% Abs/Ins;Votants;% Vot/Ins;Blancs;% Blancs/Ins;% Blancs/Vot;Nuls;% Nuls/Ins;% Nuls/Vot;Exprimés;% Exp/Ins;% Exp/Vot;no_panneau_1;sexe_1;nom_1;prenom_1;nuance_1;voix_1;voix_ins_1;voix_exp_1;no_panneau_2;sexe_2;nom_2;prenom_2;nuance_2;voix_2;voix_ins_2;voix_exp_2;no_panneau_3;sexe_3;nom_3;prenom_3;nuance_3;voix_3;voix_ins_3;voix_exp_3;no_panneau_4;sexe_4;nom_4;prenom_4;nuance_4;voix_4;voix_ins_4;voix_exp_4;no_panneau_5;sexe_5;nom_5;prenom_5;nuance_5;voix_5;voix_ins_5;voix_exp_5;no_panneau_6;sexe_6;nom_6;prenom_6;nuance_6;voix_6;voix_ins_6;voix_exp_6;no_panneau_7;sexe_7;nom_7;prenom_7;nuance_7;voix_7;voix_ins_7;voix_exp_7;no_panneau_8;sexe_8;nom_8;prenom_8;nuance_8;voix_8;voix_ins_8;voix_exp_8;no_panneau_9;sexe_9;nom_9;prenom_9;nuance_9;voix_9;voix_ins_9;voix_exp_9;no_panneau_10;sexe_10;nom_10;prenom_10;nuance_10;voix_10;voix_ins_10;voix_exp_10;no_panneau_11;sexe_11;nom_11;prenom_11;nuance_11;voix_11;voix_ins_11;voix_exp_11;no_panneau_12;sexe_12;nom_12;prenom_12;nuance_12;voix_12;voix_ins_12;voix_exp_12;no_panneau_13;sexe_13;nom_13;prenom_13;nuance_13;voix_13;voix_ins_13;voix_exp_13;no_panneau_14;sexe_14;nom_14;prenom_14;nuance_14;voix_14;voix_ins_14;voix_exp_14;no_panneau_15;sexe_15;nom_15;prenom_15;nuance_15;voix_15;voix_ins_15;voix_exp_15;no_panneau_16;sexe_16;nom_16;prenom_16;nuance_16;voix_16;voix_ins_16;voix_exp_16;no_panneau_17;sexe_17;nom_17;prenom_17;nuance_17;voix_17;voix_ins_17;voix_exp_17;no_panneau_18;sexe_18;nom_18;prenom_18;nuance_18;voix_18;voix_ins_18;voix_exp_18;no_panneau_19;sexe_19;nom_19;prenom_19;nuance_19;voix_19;voix_ins_19;voix_exp_19;no_panneau_20;sexe_20;nom_20;prenom_20;nuance_20;voix_20;voix_ins_20;voix_exp_20;no_panneau_21;sexe_21;nom_21;prenom_21;nuance_21;voix_21;voix_ins_21;voix_exp_21;no_panneau_22;sexe_22;nom_22;prenom_22;nuance_22;voix_22;voix_ins_22;voix_exp_22;no_panneau_23;sexe_23;nom_23;prenom_23;nuance_23;voix_23;voix_ins_23;voix_exp_23;no_panneau_24;sexe_24;nom_24;prenom_24;nuance_24;voix_24;voix_ins_24;voix_exp_24;no_panneau_25;sexe_25;nom_25;prenom_25;nuance_25;voix_25;voix_ins_25;voix_exp_25;no_panneau_26;sexe_26;nom_26;prenom_26;nuance_26;voix_26;voix_ins_26;voix_exp_26;no_panneau_27;sexe_27;nom_27;prenom_27;nuance_27;voix_27;voix_ins_27;voix_exp_27' legislatives_2017_T1_bv.csv
+
+
+
+legislatives_2017_t1_bv <- read_csv2(here("data", "legislatives_2017_T1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), col_types = c(col_types_char, col_types_int))
+names(legislatives_2017_t1_bv) <- col_names
 
 leg_2017_R1_BV_cleaned <- LireMinInterieur::lire(legislatives_2017_t1_bv, keep = names(legislatives_2017_t1_bv)[c(1,3,5,7:9,11,13,16,19)], col = seq(26, n_col, 8), gap = 1)
 
@@ -436,11 +456,11 @@ leg_2022_R1_BV_cleaned %>% write_excel_csv(here("data", "leg_2022_t1_bv.csv"))
 
 # il faut d'abord matcher les bv avec les résultats 2017
 
-bv_grandlyon_p2017_t1_res <- bv_communes_2017 %>% 
+bv_grandlyon_p2017_t1_res <- bv_2017 %>% 
   mutate(bureau_vote_id = str_replace(bureau_vote_id, "6938[1-9]", "69123")) %>% 
   left_join(presidentielle_2017_t1_bv, by = join_by(bureau_vote_id == CodeBV)) %>% 
   filter(!is.na(Inscrits))
-st_write(bv_grandlyon_p2017_t1_res, here("output_data", "bv_grandlyon_p2017_t1_res.gpkg"))
+st_write(bv_grandlyon_p2017_t1_res, here("output_data", "bv_grandlyon_p2017_t1_res.gpkg"), append = FALSE)
 
 
 bv_grandlyon_p2017_t2_res <- bv_communes_2017 %>% 

@@ -57,8 +57,8 @@ library(tidyverse)
 
 communes_gd_lyon <- read_csv2("https://download.data.grandlyon.com/ws/grandlyon/adr_voie_lieu.adrcomgl/all.csv?maxfeatures=100&start=1")
 
-communes_gd_lyon_shp <- GET(URLencode("https://download.data.grandlyon.com/wfs/grandlyon?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=adr_voie_lieu.adrcomgl&outputFormat=application/json; subtype=geojson&SRSNAME=EPSG:4171"))
-communes_gd_lyon_shp <- content(communes_gd_lyon_shp, as = "text")
+communes_gd_lyon_shp <- httr::GET(URLencode("https://download.data.grandlyon.com/wfs/grandlyon?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=adr_voie_lieu.adrcomgl&outputFormat=application/json; subtype=geojson&SRSNAME=EPSG:4171"))
+communes_gd_lyon_shp <- httr::content(communes_gd_lyon_shp, as = "text")
 communes_gd_lyon_shp <- st_read(communes_gd_lyon_shp, drivers = "GeoJSON", quiet = TRUE)
 
 ```
@@ -340,11 +340,11 @@ leg_2017_R1_BV_cleaned %>% write_excel_csv(here("data", "leg_2017_t1_bv.csv"))
 
 # présidentielle 2022 T1
 
-download.file("https://www.data.gouv.fr/fr/datasets/r/79b5cac4-4957-486b-bbda-322d80868224", destfile = here("data", "pre_2022_t1_bv.csv"))
-header_P22T1 <- names(read_csv2(here("data", "pre_2022_t1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), n_max = 1))
-n_col <- ncol(read_csv2(here("data", "pre_2022_t1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), skip = 1, col_names =FALSE))
+# download.file("https://www.data.gouv.fr/fr/datasets/r/79b5cac4-4957-486b-bbda-322d80868224", destfile = here("data", "pre_2022_t1_bv.csv"))
+header_P22T1 <- names(read_csv(here("data", "pre_2022_t1_bv.csv"), locale = locale(encoding = "UTF-8"), n_max = 1))
+n_col <- ncol(read_csv(here("data", "pre_2022_t1_bv.csv"), locale = locale(encoding = "UTF-8"), skip = 1, col_names =FALSE))
 nrep <- (n_col-21) / 7
-presidentielle_2022_t1_bv <- read_csv2(here("data", "pre_2022_t1_bv.csv"), locale = locale(encoding = "ISO-8859-1"), skip = 1, col_names = c(header_P17T2[-c(22:28)], paste0(rep(c("no_panneau", "sexe", "nom", "prenom", "voix", "voix_ins", "voix_exp"), nrep), "_", rep(seq(1:nrep), each = 7))))
+presidentielle_2022_t1_bv <- read_csv(here("data", "pre_2022_t1_bv.csv"), locale = locale(encoding = "UTF-8"), skip = 1, col_names = c(header_P17T2[-c(22:28)], paste0(rep(c("no_panneau", "sexe", "nom", "prenom", "voix", "voix_ins", "voix_exp"), nrep), "_", rep(seq(1:nrep), each = 7))))
 
 presidentielle_2022_t1_bv_cleaned <- LireMinInterieur::lire(presidentielle_2022_t1_bv, keep = names(presidentielle_2022_t1_bv)[c(1,3,5,7:9,11,13,16,19)], col = seq(24, n_col, 7), gap = 2)
 
@@ -463,7 +463,7 @@ bv_grandlyon_p2017_t1_res <- bv_2017 %>%
 st_write(bv_grandlyon_p2017_t1_res, here("output_data", "bv_grandlyon_p2017_t1_res.gpkg"), append = FALSE)
 
 
-bv_grandlyon_p2017_t2_res <- bv_communes_2017 %>% 
+bv_grandlyon_p2017_t2_res <- bv_2017 %>% 
   mutate(bureau_vote_id = str_replace(bureau_vote_id, "6938[1-9]", "69123")) %>% 
   left_join(presidentielle_2017_t2_bv, by = join_by(bureau_vote_id == CodeBV)) %>% 
   filter(!is.na(Inscrits))
@@ -510,14 +510,14 @@ qpv_gd_lyon <- qpv69 %>% slice(which(map_lgl(qpv69 %>% st_intersects(communes_gd
 
 # P2017T1
 
-qpv69_pres_17_t1 <- tidycensus::interpolate_pw(from = bv_grandyon_p2017_t1_res %>% select(- contains("_ins"), -contains("_exp"), -contains("_vot")), to = qpv_gd_lyon, to_id = "CODE_QP", extensive = TRUE, weights = poids_2017, weight_column = "n")
-st_write(qpv69_pres_17_t1, here("output_data", "qpv69_pres_17_t1.gpkg"))
+qpv69_pres_17_t1 <- tidycensus::interpolate_pw(from = bv_grandlyon_p2017_t1_res %>% select(- contains("_ins"), -contains("_exp"), -contains("_vot")), to = qpv_gd_lyon, to_id = "CODE_QP", extensive = TRUE, weights = poids_2017, weight_column = "n")
+st_write(qpv69_pres_17_t1, here("output_data", "qpv69_pres_17_t1.gpkg"), append = FALSE)
 
 
 # P2017T2
 
-qpv69_pres_17_t2 <- tidycensus::interpolate_pw(from = bv_grandyon_p2017_t2_res, to = qpv_gd_lyon, to_id = "CODE_QP", extensive = TRUE, weights = poids_2017, weight_column = "n")
-st_write(qpv69_pres_17_t2, here("output_data", "qpv69_pres_17_t2.gpkg"))
+qpv69_pres_17_t2 <- tidycensus::interpolate_pw(from = bv_grandlyon_p2017_t2_res, to = qpv_gd_lyon, to_id = "CODE_QP", extensive = TRUE, weights = poids_2017, weight_column = "n")
+st_write(qpv69_pres_17_t2, here("output_data", "qpv69_pres_17_t2.gpkg"), append = FALSE)
 
 # L2017T1
 

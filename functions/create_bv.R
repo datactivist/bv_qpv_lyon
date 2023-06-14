@@ -22,7 +22,7 @@ create_bv <- function(liste, code_insee_commune, seuil = 0.9, code_bv = `numéro
   
   # obtenir le contour de la commune
   contour <- httr::GET(paste0("https://geo.api.gouv.fr/communes/", code_insee_commune, "?geometry=contour&format=geojson"))
-  enveloppe <- sf::st_read(content(contour, as = "text"), quiet = TRUE)
+  enveloppe <- sf::st_read(httr::content(contour, as = "text"), quiet = TRUE)
   enveloppe <- enveloppe %>% 
     select(-codesPostaux)
 

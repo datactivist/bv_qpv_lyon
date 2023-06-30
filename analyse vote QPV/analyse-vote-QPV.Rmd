@@ -6,7 +6,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
     rmarkdown::html_document:
       #number_sections: true
-      self_contained: false
+      #self_contained: false
       theme: paper
       toc: true
       toc_depth: 4
@@ -29,8 +29,8 @@ knitr::opts_chunk$set(
 	warning = FALSE,
 	collapse = TRUE,
 	out.width = "100%",
-	results = "asis",
-	cache = TRUE
+	results = "asis"#,
+	#cache = TRUE
 )
 ```
 
@@ -46,7 +46,6 @@ htmltools::img(src = "https://nextcloud.datactivist.coop/s/o53wzfMNnFosQni/previ
 
 ```{r libraries et données, include=FALSE}
 # Librairies
-library(tidyverse)
 library(sf)
 library(here)
 library(gridExtra)
@@ -57,6 +56,7 @@ library(leafsync)
 library(ggtext)
 library(tools)
 library(RColorBrewer)
+library(tidyverse)
 
 # Données
 bv_2017 <- st_read(here("output_data", "bv_2017.gpkg"))
@@ -119,7 +119,7 @@ evolution_bv_longer |>
         labs(title = "Localisation des bureaux de votes de la métropole de Lyon", 
              subtitle = "Entre 2017 et 2022, 5 bureaux de vote (BV) sont restés parfaitement identiques, \n861 ont été redécoupés, 30 ont été créés et 1 a été supprimé.", 
              fill = "",
-             caption = "Source: Données extraites des listes électorales et Cartelec, Céline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon entre 2017 et 2022") +
+             caption = "Source: Données extraites des listes électorales et Cartelec, Céline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon en 2017 et 2022") +
         facet_wrap(~annee) +
         theme_void() +
         guides(fill = guide_legend(override.aes = list(lwd = 1, col = "white"))) +
@@ -256,12 +256,148 @@ sync(p2017,p2022)
 ```
 
 
+<br>
+
+<br>
+
+## Population, inscrits, votants{.tabset}
+
+```{r include=FALSE}
+# Import données externes
+pop_qpv <- st_read(here("output_data", "data_pop_qpv_2018.csv"))
+pop_communes <- read_delim("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/demographyref-france-pop-legale-commune-arrondissement-municipal/exports/csv?lang=fr&facet=facet(name%3D%22reg_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22arrdep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_name%22%2C%20disjunctive%3Dtrue)&refine=dep_code%3A%2269%22&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B", ";") |> 
+  mutate(code_insee = as.character(`Code Officiel Commune / Arrondissement Municipal`)) |> 
+  select(code_insee, `Population municipale`) |> 
+  rename(Population = `Population municipale`)
+```
+
+
+### BV
+
+```{r pop BV, fig.height=7}
+rbind(bv_l17_t1 |> 
+        mutate(type = "Législatives 2017 tour 1", Population = 1386000) |> 
+        select(code_insee, Population, Inscrits, Votants, type),
+      bv_l22_t1 |> 
+        mutate(type = "Législatives 2022 tour 1", Population = 1411570) |> 
+        select(code_insee, Population, Inscrits, Votants, type),
+      bv_p17_t1 |> 
+        mutate(type = "Présidentielles 2017 tour 1", Population = 1386000) |> 
+        select(code_insee, Population, Inscrits, Votants, type),
+      bv_p22_t1 |> 
+        mutate(type = "Présidentielles 2022 tour 1", Population = 1411570) |> 
+        select(code_insee, Population, Inscrits, Votants, type),
+      bv_p17_t2 |> 
+        mutate(type = "Présidentielles 2017 tour 2", Population = 1386000) |> 
+        select(code_insee, Population, Inscrits, Votants, type),
+      bv_p22_t2 |> 
+        mutate(type = "Présidentielles 2022 tour 2", Population = 1411570) |> 
+        select(code_insee, Population, Inscrits, Votants, type)) |> 
+  group_by(type) |> 
+  mutate(Inscrits = sum(Inscrits, na.rm = T),
+         Votants = sum(Votants, na.rm = T)) |> 
+  as.data.frame() |> 
+  select(-c(code_insee, geom)) |> 
+  distinct() |> 
+  mutate(total = Population) |> 
+  pivot_longer(cols = -c(type, total), names_to = "compte", values_to = "nb") |> 
+  mutate(percent = paste0(round(nb/total*100, 0), "%"),
+         compte = fct_reorder(compte, nb, .desc = TRUE)) |> 
+  ggplot(aes(x = compte, y = nb, group = type)) +
+    geom_bar(stat = "identity", width = .6, fill = "wheat2", color = "black") +
+    labs(x = "", y = "Nombre de personnes", 
+         title = "Répartition des votants et inscrits parmi la population \n(en 2017 et 2022) des communes des bureaux de vote") +
+    theme_classic() +
+    theme(legend.position = "none",
+          text = element_text(family = "Monsterrat", size = 12),
+          plot.title = element_text(face = "bold"),
+          axis.title.y = element_blank(),
+          panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    geom_text(aes(y = nb + 0.1*max(nb), x = compte, label = percent), 
+              color = "#333333", size = 3, check_overlap = T) +
+    facet_wrap(~type, ncol = 2, scales='free') +
+    scale_y_continuous(labels = scales::comma)
+```
+
+
+### QPV
+
+```{r pop QPV, fig.height=7}
+# QPV
+rbind(qpv_l17_t1 |> 
+        left_join(pop_qpv |> select(codeQPV, popMuniQPV),
+                          by = c("CODE_QP" = "codeQPV")) |> 
+        select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
+        mutate(type = "Législatives 2017 tour 1") |> 
+        rename(id = CODE_QP, Population = popMuniQPV), 
+      qpv_l22_t1 |> 
+        left_join(pop_qpv |> select(codeQPV, popMuniQPV),
+                          by = c("CODE_QP" = "codeQPV")) |> 
+        select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
+        mutate(type = "Législatives 2022 tour 1") |> 
+        rename(id = CODE_QP, Population = popMuniQPV),
+      qpv_p17_t1 |> 
+        left_join(pop_qpv |> select(codeQPV, popMuniQPV),
+                          by = c("CODE_QP" = "codeQPV")) |> 
+        select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
+        mutate(type = "Présidentielles 2017 tour 1") |> 
+        rename(id = CODE_QP, Population = popMuniQPV),
+      qpv_p22_t1 |> 
+        left_join(pop_qpv |> select(codeQPV, popMuniQPV),
+                          by = c("CODE_QP" = "codeQPV")) |> 
+        select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
+        mutate(type = "Présidentielles 2022 tour 1") |> 
+        rename(id = CODE_QP, Population = popMuniQPV),
+      qpv_p17_t2 |> 
+        left_join(pop_qpv |> select(codeQPV, popMuniQPV),
+                          by = c("CODE_QP" = "codeQPV")) |> 
+        select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
+        mutate(type = "Présidentielles 2017 tour 2") |> 
+        rename(id = CODE_QP, Population = popMuniQPV),
+      qpv_p22_t2 |> 
+        left_join(pop_qpv |> select(codeQPV, popMuniQPV),
+                          by = c("CODE_QP" = "codeQPV")) |> 
+        select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
+        mutate(type = "Présidentielles 2022 tour 2") |> 
+        rename(id = CODE_QP, Population = popMuniQPV)) |> 
+  group_by(type) |> 
+  mutate(Population = sum(as.numeric(Population), na.rm = T),
+         Inscrits = sum(Inscrits, na.rm = T),
+         Votants = sum(Votants, na.rm = T)) |> 
+  as.data.frame() |> 
+  select(-c(id, geom)) |> 
+  distinct() |> 
+  mutate(total = Population) |> 
+  pivot_longer(cols = -c(type, total), names_to = "compte", values_to = "nb") |> 
+  mutate(percent = paste0(round(nb/total*100, 0), "%"),
+         compte = fct_reorder(compte, nb, .desc = TRUE)) |> 
+  ggplot(aes(x = compte, y = nb, group = type)) +
+    geom_bar(stat = "identity", width = .6, fill = "brown3", color = "black") +
+    labs(x = "", y = "Nombre de personnes", 
+         title = "Répartition des votants et inscrits parmi la population \n(en 2018) des quartiers prioritaires") +
+    theme_classic() +
+    theme(legend.position = "none",
+          text = element_text(family = "Monsterrat", size = 12),
+          plot.title = element_text(face = "bold"),
+          axis.title.y = element_blank(),
+          panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    geom_text(aes(y = nb + 0.1*max(nb), x = compte, label = percent), 
+              color = "#333333", size = 3, check_overlap = T) +
+    facet_wrap(~type, ncol = 2, scales='free') +
+    scale_y_continuous(labels = scales::comma)
+```
+
+
 # Présentation des données
 
 ## Distribution des votes{.tabset}
 
-```{r}
-boxplot_comp <- function(bv, qpv, elections, interpretation){
+```{r function violinplot}
+violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
     common_cols <- intersect(colnames(bv), colnames(qpv))
     bv <- bv |> left_join(evolution_bv |> select(bureau_vote_id, perim_met), by = 'bureau_vote_id')
     bv_all <- bv |> as.data.frame() |> rename(old_id = id, id = bureau_vote_id) |> 
@@ -273,457 +409,108 @@ boxplot_comp <- function(bv, qpv, elections, interpretation){
     rbind(bv_all, bv_hors_qpv, qpv)|> 
         pivot_longer(cols = -c(id, type, Inscrits), values_to = "nb_pers", names_to = "vote") |> 
         mutate(percent_inscrits = nb_pers/Inscrits*100,
+               order_false_percent = case_when(vote == "Abstentions" ~ 150,
+                                               vote == "Blancs" ~ 125,
+                                               vote == "Nuls" ~ 100,
+                                               .default = percent_inscrits),
                vote = str_replace_all(vote, "\\.", " "),
                # vote = toTitleCase(tolower(vote)),
-               vote = fct_reorder(vote, percent_inscrits, .desc = T)) |> 
+               vote = fct_reorder(vote, order_false_percent, .desc = T)) |> 
         filter(!vote %in% c("Votants", "Exprimés")) |>
         ggplot(aes(x = type, y = percent_inscrits, fill = type)) +
             geom_violin(linewidth = .3) +
             #geom_jitter(shape=16, position=position_jitter(0.2), alpha = .1) +
-            # facet_wrap(~vote, scales = 'free_x') +
-            facet_wrap(~vote) +
+            facet_wrap(~vote, scales='free_x') +
+            scale_y_continuous(limits=c(min_x, max_x)) +
             scale_fill_manual(values = c("Ensemble métropole" = "wheat3", "Métropole hors QPV" = "wheat2", 
                                          "Quartiers prioritaires" = "brown3")) +
-            scale_y_continuous(breaks = scales::pretty_breaks()) +
             labs(title = paste0("Comparaison de la distribution des votes entre BV et QPV \n", elections), 
                  subtitle = interpretation, fill = "",
-                 caption = "Source: Données extraites des listes électorales et Cartelec, Céline COLANGE ©UMR CNRS 6266 IDEES, \nUniversité de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon entre 2017 et 2022",
+                 caption = "Source: Données extraites des listes électorales et Cartelec, \nCéline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon en 2017 et 2022",
                  y = "Pourcentage d'inscrits", x = "Vote") +
             coord_flip() +
-            theme_light() +
+            theme_classic() +
             theme(plot.title = element_text(face = "bold"),
                   plot.caption = element_text(face = "italic", hjust = 0),
                   strip.text = element_text(color = "black", face = "bold"),
-                  legend.position = "none")
+                  legend.position = "none",
+                  axis.title.y = element_blank(),
+                  panel.grid.major.x = ggplot2::element_line(color = "#cbcbcb"),
+                  axis.line.y = element_blank(),
+                  axis.ticks.y = element_blank())
 }
-
 ```
 
 ### Pres.17 tour 1
 
 ```{r fig.height=10}
-boxplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "")
+violinplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "", 0, 50)
 ```
 
 ### Pres.17 tour 2
 
-```{r fig.height=10}
-boxplot_comp(bv_p17_t2, qpv_p17_t2, "au second tour des présidentielles de 2017", "")
+```{r fig.height=5}
+violinplot_comp(bv_p17_t2, qpv_p17_t2, "au second tour des présidentielles de 2017", "", 0, 60)
 ```
 
 ### Leg.17 tour 1
 
 ```{r fig.height=10}
-boxplot_comp(bv_l17_t1, qpv_l17_t1, "au premier tour des législatives de 2017", "")
+violinplot_comp(bv_l17_t1, qpv_l17_t1, "au premier tour des législatives de 2017", "", 0, 80)
 ```
 
 
 ### Pres.22 tour 1
 
 ```{r fig.height=10}
-boxplot_comp(bv_p22_t1, qpv_p22_t1, "au premier tour des présidentielles de 2022", "")
+violinplot_comp(bv_p22_t1, qpv_p22_t1, "au premier tour des présidentielles de 2022", "", 0, 80)
 ```
 
 ### Pres.22 tour 2
 
-```{r fig.height=10}
-boxplot_comp(bv_p22_t2, qpv_p22_t2, "au second tour des présidentielles de 2022", "")
+```{r fig.height=5}
+violinplot_comp(bv_p22_t2, qpv_p22_t2, "au second tour des présidentielles de 2022", "", 0, 80)
 ```
 
 ### Leg.22 tour 1
 
 ```{r fig.height=10}
-boxplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 2017", "")
+violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 2017", "", 0, 80)
 ```
 
 
 
 
-## Cartographies des votes
+## Cartographies des votes{.tabset}
 
-### Présidentielles de 2017 tour 1{.tabset}
+### Pres.17 tour 1
 
-```{r}
-table_carto_resultats <- function(data_bv, data_qpv){
-  common_cols <- intersect(colnames(data_bv), colnames(data_qpv))
-  carto_data <- rbind(data_bv |> as.data.frame() |> rename(old_id = id, id = bureau_vote_id) |> 
-                          select(id, common_cols, -ends_with(c(".ins", ".exp"))) |> mutate(type = "Bureaux de vote"), 
-                      data_qpv |> as.data.frame() |> rename(id = CODE_QP) |> select(id, common_cols, -ends_with(c(".ins", ".exp"))) |> 
-                          mutate(type = "Quartiers prioritaires")) |> 
-     mutate_at(vars(Inscrits:Exprimés), ~round(.,0)) 
-  assign("carto_data", carto_data, envir = .GlobalEnv)
-}
-table_carto_resultats(bv_p17_t1, qpv_p17_t1)
-```
+<iframe src="Save_cartos/carte_p17_t1.html" height="600" width="1000" style="border: 0px solid #464646;" allowfullscreen="" allow="autoplay" data-external="1"></iframe>
 
-#### Abstentions
 
-```{r}
-carto_resultats <- function(nume, denomi, type_vote, nume_popup, denomi_popup, layer_bv, layer_qpv){
-  carto_data <- carto_data |> mutate(part_nb = round({{nume}} / {{denomi}}*100, 2)) |> st_as_sf()
-  bv <- carto_data |> filter(type == "Bureaux de vote")
-  qpv <- carto_data |> filter(type == "Quartiers prioritaires")
-  mapview(list(bv, qpv),
-          zcol = list("part_nb", "part_nb"), 
-          col.regions = list(brewer.pal(9, "YlOrBr"), brewer.pal(9, "Blues")),
-          layer.name = list(layer_bv, layer_qpv),
-          label = list(paste0(qpv$part_nb, "%", type_vote), paste0(qpv$part_nb, "%", type_vote)),
-          legend = c(TRUE, TRUE), levels = c(TRUE, F),
-          basemaps.color.shuffle = list(FALSE, FALSE), 
-          map.types = "CartoDB.Positron",
-          popup = list(popupTable(bv, zcol = c("id", "type", nume_popup, denomi_popup), row.numbers = F, feature.id = F),
-                       popupTable(qpv, zcol = c("id", "type", nume_popup, denomi_popup), row.numbers = F, feature.id = F)))
-}
-carto_resultats(Abstentions, Inscrits, "d'abstentions", "Abstentions", "Inscrits",
-                "Part d'abstentions parmi les inscrits <br>Métropole", "Part d'abstentions parmi les inscrits <br>Quartiers prioritaires")
-```
+### Pres.17 tour 2
 
+<iframe src="Save_cartos/carte_p17_t2.html" height="600" width="1000" style="border: 0px solid #464646;" allowfullscreen="" allow="autoplay" data-external="1"></iframe>
 
-#### Votes blancs
 
-```{r}
-carto_resultats(Blancs, Votants, "de votes blancs", "Blancs", "Votants",
-                "Part de votes blancs parmi les votants <br>Métropole", "Part de votes blancs parmi les votants <br>Quartiers prioritaires")
-```
+### Leg.17 tour 1
 
+<iframe src="Save_cartos/carte_l17_t1.html" height="600" width="1000" style="border: 0px solid #464646;" allowfullscreen="" allow="autoplay" data-external="1"></iframe>
 
-#### MÉLENCHON
 
-```{r}
-test <- carto_data |> summarize_if(is.numeric, sum, na.rm=TRUE) |> t() |> as.data.frame() |> arrange(desc(V1))
-carto_resultats(MÉLENCHON, Exprimés, "de votes pour MÉLENCHON", "MÉLENCHON", "Exprimés",
-                "Part de votes pour MÉLENCHON parmi les exprimés <br>Métropole", "Part de votes pour MÉLENCHON parmi les exprimés <br>Quartiers prioritaires")
-```
+### Pres.22 tour 1
 
+<iframe src="Save_cartos/carte_p22_t1.html" height="600" width="1000" style="border: 0px solid #464646;" allowfullscreen="" allow="autoplay" data-external="1"></iframe>
 
-#### HAMON
 
-```{r}
-carto_resultats(HAMON, Exprimés, "de votes pour HAMON", "HAMON", "Exprimés",
-                "Part de votes pour HAMON parmi les exprimés <br>Métropole", "Part de votes pour HAMON parmi les exprimés <br>Quartiers prioritaires")
-```
+### Pres.22 tour 2
 
+<iframe src="Save_cartos/carte_p22_t2.html" height="600" width="1000" style="border: 0px solid #464646;" allowfullscreen="" allow="autoplay" data-external="1"></iframe>
 
-#### MACRON
 
-```{r}
-carto_resultats(MACRON, Exprimés, "de votes pour MACRON", "MACRON", "Exprimés",
-                "Part de votes pour MACRON parmi les exprimés <br>Métropole", "Part de votes pour MACRON parmi les exprimés <br>Quartiers prioritaires")
-```
+### Leg.22 tour 1
 
-#### FILLON
-
-```{r}
-carto_resultats(FILLON, Exprimés, "de votes pour FILLON", "FILLON", "Exprimés",
-                "Part de votes pour FILLON parmi les exprimés <br>Métropole", "Part de votes pour FILLON parmi les exprimés <br>Quartiers prioritaires")
-```
-
-#### LE PEN
-
-```{r}
-carto_resultats(LE.PEN, Exprimés, "de votes pour LE PEN", "LE.PEN", "Exprimés",
-                "Part de votes pour LE PEN parmi les exprimés <br>Métropole", "Part de votes pour LE PEN parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-
-### Présidentielles de 2017 tour 2{.tabset}
-
-```{r}
-table_carto_resultats(bv_p17_t2, qpv_p17_t2)
-```
-
-#### Abstentions
-
-```{r}
-carto_resultats(Abstentions, Inscrits, "d'abstentions", "Abstentions", "Inscrits",
-                "Part d'abstentions parmi les inscrits <br>Métropole", "Part d'abstentions parmi les inscrits <br>Quartiers prioritaires")
-```
-
-
-#### Votes blancs
-
-```{r}
-carto_resultats(Blancs, Votants, "de votes blancs", "Blancs", "Votants",
-                "Part de votes blancs parmi les votants <br>Métropole", "Part de votes blancs parmi les votants <br>Quartiers prioritaires")
-```
-
-
-#### MACRON
-
-```{r}
-carto_resultats(MACRON, Exprimés, "de votes pour MACRON", "MACRON", "Exprimés",
-                "Part de votes pour MACRON parmi les exprimés <br>Métropole", "Part de votes pour MACRON parmi les exprimés <br>Quartiers prioritaires")
-```
-
-#### LE PEN
-
-```{r}
-carto_resultats(LE.PEN, Exprimés, "de votes pour LE PEN", "LE.PEN", "Exprimés",
-                "Part de votes pour LE PEN parmi les exprimés <br>Métropole", "Part de votes pour LE PEN parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-### Législatives de 2017 tour 1{.tabset}
-
-```{r}
-table_carto_resultats(bv_l17_t1, qpv_l17_t1)
-```
-
-#### Abstentions
-
-```{r}
-carto_resultats(Abstentions, Inscrits, "d'abstentions", "Abstentions", "Inscrits",
-                "Part d'abstentions parmi les inscrits <br>Métropole", "Part d'abstentions parmi les inscrits <br>Quartiers prioritaires")
-```
-
-
-#### Votes blancs
-
-```{r}
-carto_resultats(Blancs, Votants, "de votes blancs", "Blancs", "Votants",
-                "Part de votes blancs parmi les votants <br>Métropole", "Part de votes blancs parmi les votants <br>Quartiers prioritaires")
-```
-
-
-#### FI
-
-```{r}
-test <- carto_data |> summarize_if(is.numeric, sum, na.rm=TRUE) |> t() |> as.data.frame() |> arrange(desc(V1))
-carto_resultats(FI, Exprimés, "de votes 'France insoumise'", "FI", "Exprimés",
-                "Part de votes 'France insoumise' parmi les exprimés <br>Métropole", "Part de votes 'France insoumise' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### ECO
-
-```{r}
-carto_resultats(ECO, Exprimés, "de votes écologistes", "ECO", "Exprimés",
-                "Part de votes écologistes parmi les exprimés <br>Métropole", "Part de votes écologistes parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### REM
-
-```{r}
-carto_resultats(REM, Exprimés, "de votes 'République en marche'", "REM", "Exprimés",
-                "Part de votes 'République en marche' parmi les exprimés <br>Métropole", "Part de votes 'République en marche' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### LR
-
-```{r}
-carto_resultats(LR, Exprimés, "de votes 'les Républicains'", "LR", "Exprimés",
-                "Part de votes 'les Républicains' parmi les exprimés <br>Métropole", "Part de votes 'les Républicains' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### FN
-
-```{r}
-carto_resultats(FN, Exprimés, "de votes 'Front national'", "FN", "Exprimés",
-                "Part de votes 'Front national' parmi les exprimés <br>Métropole", "Part de votes 'Front national' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-
-### Présidentielles de 2022 tour 1{.tabset}
-
-```{r}
-table_carto_resultats(bv_p22_t1, qpv_p22_t1)
-```
-
-#### Abstentions
-
-```{r}
-carto_resultats(Abstentions, Inscrits, "d'abstentions", "Abstentions", "Inscrits",
-                "Part d'abstentions parmi les inscrits <br>Métropole", "Part d'abstentions parmi les inscrits <br>Quartiers prioritaires")
-```
-
-
-#### Votes blancs
-
-```{r}
-carto_resultats(Blancs, Votants, "de votes blancs", "Blancs", "Votants",
-                "Part de votes blancs parmi les votants <br>Métropole", "Part de votes blancs parmi les votants <br>Quartiers prioritaires")
-```
-
-
-#### MÉLENCHON
-
-```{r}
-test <- carto_data |> summarize_if(is.numeric, sum, na.rm=TRUE) |> t() |> as.data.frame() |> arrange(desc(V1))
-carto_resultats(MÉLENCHON, Exprimés, "de votes pour MÉLENCHON", "MÉLENCHON", "Exprimés",
-                "Part de votes pour MÉLENCHON parmi les exprimés <br>Métropole", "Part de votes pour MÉLENCHON parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### JADOT
-
-```{r}
-carto_resultats(JADOT, Exprimés, "de votes pour JADOT", "JADOT", "Exprimés",
-                "Part de votes pour JADOT parmi les exprimés <br>Métropole", "Part de votes pour JADOT parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### MACRON
-
-```{r}
-carto_resultats(MACRON, Exprimés, "de votes pour MACRON", "MACRON", "Exprimés",
-                "Part de votes pour MACRON parmi les exprimés <br>Métropole", "Part de votes pour MACRON parmi les exprimés <br>Quartiers prioritaires")
-```
-
-#### LE PEN
-
-```{r}
-carto_resultats(LE.PEN, Exprimés, "de votes pour LE PEN", "LE.PEN", "Exprimés",
-                "Part de votes pour LE PEN parmi les exprimés <br>Métropole", "Part de votes pour LE PEN parmi les exprimés <br>Quartiers prioritaires")
-```
-
-#### ZEMMOUR
-
-```{r}
-carto_resultats(ZEMMOUR, Exprimés, "de votes pour ZEMMOUR", "ZEMMOUR", "Exprimés",
-                "Part de votes pour ZEMMOUR parmi les exprimés <br>Métropole", "Part de votes pour ZEMMOUR parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-
-### Présidentielles de 2022 tour 2{.tabset}
-
-```{r}
-table_carto_resultats(bv_p22_t2, qpv_p22_t2)
-```
-
-#### Abstentions
-
-```{r}
-carto_resultats(Abstentions, Inscrits, "d'abstentions", "Abstentions", "Inscrits",
-                "Part d'abstentions parmi les inscrits <br>Métropole", "Part d'abstentions parmi les inscrits <br>Quartiers prioritaires")
-```
-
-
-#### Votes blancs
-
-```{r}
-carto_resultats(Blancs, Votants, "de votes blancs", "Blancs", "Votants",
-                "Part de votes blancs parmi les votants <br>Métropole", "Part de votes blancs parmi les votants <br>Quartiers prioritaires")
-```
-
-
-#### MACRON
-
-```{r}
-carto_resultats(MACRON, Exprimés, "de votes pour MACRON", "MACRON", "Exprimés",
-                "Part de votes pour MACRON parmi les exprimés <br>Métropole", "Part de votes pour MACRON parmi les exprimés <br>Quartiers prioritaires")
-```
-
-#### LE PEN
-
-```{r}
-carto_resultats(LE.PEN, Exprimés, "de votes pour LE PEN", "LE.PEN", "Exprimés",
-                "Part de votes pour LE PEN parmi les exprimés <br>Métropole", "Part de votes pour LE PEN parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-
-
-
-
-```{r brouillon, eval=FALSE, include=FALSE}
-common_cols <- intersect(colnames(bv_p17_t2), colnames(qpv_p17_t2))
-bv <- bv_p17_t2 |> as.data.frame() |> rename(old_id = id, id = bureau_vote_id) |> 
-  select(id, common_cols, -ends_with(c(".ins", ".exp"))) |> mutate(type = "Bureaux de vote")
-qpv <- qpv_p17_t2 |> as.data.frame() |> rename(id = CODE_QP) |> select(id, common_cols, -ends_with(c(".ins", ".exp"))) |> 
-  mutate(type = "Quartiers prioritaires")
-test <- rbind(bv, qpv) |> 
-    pivot_longer(cols = -c(id, type, Inscrits, geom), values_to = "nb_inscrits", names_to = "vote") |> 
-    mutate(percent_inscrits = nb_inscrits/Inscrits*100,
-           vote = str_replace_all(vote, "\\.", " "),
-           vote = toTitleCase(tolower(vote)),
-           vote = fct_reorder(vote, percent_inscrits, .desc = T))
-
-test |> #filter(vote == "Abstentions") |> 
-    ggplot() +
-        geom_sf(aes(geometry = geom, fill = percent_inscrits, col = percent_inscrits)) +
-        #scale_fill_gradient2(low = "yellow", mid = "blue", high = "red", midpoint = mean(test$percent_inscrits)) +
-        labs(title = "Présidentielles de 2017, tour 2", 
-             fill = "",
-             caption = "Source: Données extraites des listes électorales et Cartelec, Céline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon entre 2017 et 2022") +
-        facet_wrap(~vote) +
-        theme_void() +
-        guides(fill = guide_legend(override.aes = list(lwd = 1, col = "white"))) +
-        theme(plot.title = element_text(face = "bold"),
-              plot.caption = element_text(face = "italic", hjust = 0),
-              strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
-```
-
-
-
-### Législatives de 2022 tour 1{.tabset}
-
-```{r}
-table_carto_resultats(bv_l22_t1, qpv_l22_t1)
-```
-
-#### Abstentions
-
-```{r}
-carto_resultats(Abstentions, Inscrits, "d'abstentions", "Abstentions", "Inscrits",
-                "Part d'abstentions parmi les inscrits <br>Métropole", "Part d'abstentions parmi les inscrits <br>Quartiers prioritaires")
-```
-
-
-#### Votes blancs
-
-```{r}
-carto_resultats(Blancs, Votants, "de votes blancs", "Blancs", "Votants",
-                "Part de votes blancs parmi les votants <br>Métropole", "Part de votes blancs parmi les votants <br>Quartiers prioritaires")
-```
-
-
-
-#### FI
-
-```{r}
-test <- carto_data |> summarize_if(is.numeric, sum, na.rm=TRUE) |> t() |> as.data.frame() |> arrange(desc(V1))
-carto_resultats(FI, Exprimés, "de votes 'France insoumise'", "FI", "Exprimés",
-                "Part de votes 'France insoumise' parmi les exprimés <br>Métropole", "Part de votes 'France insoumise' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### ECO
-
-```{r}
-carto_resultats(ECO, Exprimés, "de votes écologistes", "ECO", "Exprimés",
-                "Part de votes écologistes parmi les exprimés <br>Métropole", "Part de votes écologistes parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### REM
-
-```{r}
-carto_resultats(REM, Exprimés, "de votes 'République en marche'", "REM", "Exprimés",
-                "Part de votes 'République en marche' parmi les exprimés <br>Métropole", "Part de votes 'République en marche' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### LR
-
-```{r}
-carto_resultats(LR, Exprimés, "de votes 'les Républicains'", "LR", "Exprimés",
-                "Part de votes 'les Républicains' parmi les exprimés <br>Métropole", "Part de votes 'les Républicains' parmi les exprimés <br>Quartiers prioritaires")
-```
-
-
-#### FN
-
-```{r}
-carto_resultats(FN, Exprimés, "de votes 'Front national'", "FN", "Exprimés",
-                "Part de votes 'Front national' parmi les exprimés <br>Métropole", "Part de votes 'Front national' parmi les exprimés <br>Quartiers prioritaires")
-```
-
+<iframe src="Save_cartos/carte_l22_t1.html" height="600" width="1000" style="border: 0px solid #464646;" allowfullscreen="" allow="autoplay" data-external="1"></iframe>
 
 
 

@@ -517,9 +517,10 @@ violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 201
 
 # Comparaison QPV / Métropole de Lyon
 
-- ACP avec en individus actifs les BV en 2017 (avec variables actives les résultats pour P17T1, P17T2 et L17T1, P22T1, P22T2, L22T1 en variables supplémentaires) et les BV 2022 et les QPV (2017 et 2022) en individus supplémentaires (éventuellement en pondérant les individus statistiques par le nombre d'inscrits, mais ça ne devrait pas changer grand chose)
 
 ```{r code ACP, eval=FALSE, include=FALSE}
+#- ACP avec en individus actifs les BV en 2017 (avec variables actives les résultats pour P17T1, P17T2 et L17T1, P22T1, P22T2, L22T1 en variables supplémentaires) et les BV 2022 et les QPV (2017 et 2022) en individus supplémentaires (éventuellement en pondérant les individus statistiques par le nombre d'inscrits, mais ça ne devrait pas changer grand chose)
+
 # Préparation des données
 data_acp <- bv_2017
 
@@ -555,11 +556,17 @@ res.desc[[1]]
 res.desc[[2]]
 ```
 
-- comparaison de la distribution du vote pour chaque comportement principal par BV entre l'ensemble des BV de la Métropole et les QPV (avec `geom_dotplot` par exemple)
+
+
+```{r}
+#- comparaison de la distribution du vote pour chaque comportement principal par BV entre l'ensemble des BV de la Métropole et les QPV (avec `geom_dotplot` par exemple)
 
 # Evolution du vote au sein des QPV
 
-- graphique avec en abscisse 4 scrutins (P17T1, L17T1, P22T1, L22T1) et en ordonnée le vote, et une ligne par grand comportement électoral (ou alors un graphique par comportement électoral, avec `geom_facet`, ce qui permet de rajouter en repère le comportement national et celui de l'ensemble de la Métropole de Lyon) 
+#- graphique avec en abscisse 4 scrutins (P17T1, L17T1, P22T1, L22T1) et en ordonnée le vote, et une ligne par grand comportement électoral (ou alors un graphique par comportement électoral, avec `geom_facet`, ce qui permet de rajouter en repère le comportement national et celui de l'ensemble de la Métropole de Lyon) 
+```
+
+
 
 
 

@@ -515,17 +515,40 @@ violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 201
 
 
 
-# Comparaison QPV / Métropole de Lyon
+# Analyse en composantes principales
 
 
 ```{r code ACP, eval=FALSE, include=FALSE}
-#- ACP avec en individus actifs les BV en 2017 (avec variables actives les résultats pour P17T1, P17T2 et L17T1, P22T1, P22T2, L22T1 en variables supplémentaires) et les BV 2022 et les QPV (2017 et 2022) en individus supplémentaires (éventuellement en pondérant les individus statistiques par le nombre d'inscrits, mais ça ne devrait pas changer grand chose)
+#- ACP avec en 
+#- individus actifs : les BV en 2017 
+    #variables actives : les résultats pour P17T1, P17T2 
+    #variables supplémentaires: les résultats pour L17T1, P22T1, P22T2, L22T1
+#- individus supplémentaires : les BV 2022 et les QPV (2017 et 2022)
+ #(éventuellement en pondérant les individus statistiques par le nombre d'inscrits, mais ça ne devrait pas changer grand chose)
+
 
 # Préparation des données
-data_acp <- bv_2017
+var_actives <- left_join(as.data.frame(bv_p17_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p17_t1')), 
+                         as.data.frame(bv_p17_t2) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p17_t2')), 
+                         by = 'bureau_vote_id') 
+var_supp_pre <- left_join(as.data.frame(bv_p22_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p22_t1')), 
+                          as.data.frame(bv_p22_t2) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p22_t2')), 
+                          by = 'bureau_vote_id')
+var_supp_leg <- left_join(as.data.frame(bv_l17_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_l17_t1')), 
+                          as.data.frame(bv_l22_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_l22_t1')), 
+                          by = 'bureau_vote_id')
+var_supp <- full_join(var_supp_pre, var_supp_leg, by = 'bureau_vote_id')
+var_acp <- full_join(var_actives, var_supp, by = 'bureau_vote_id') |> 
+    select(-starts_with(c("code_insee", "CodeInsee", "CodeDepartement", "Département", "CodeCirco", "Commune", "NumeroBV", "geom", "id_", "Code.du.département", "type", "Code.de.la.circonscription", "Code.de.la.commune", "Code.du.b.vote", "NbCand", "NumeroCirco", "CodeCommune")), 
+           -contains(c("_ins", "_vot_", ".ins", ".exp")),
+           -bureau_vote_id)
+
+
 
 # ACP
-res.pca <- PCA(cycle_de_vie |> mutate_all(as.logical), ncp = 5)
+library(FactoMineR)
+#res <- prcomp(var_acp, center = TRUE, scale = TRUE)
+res.pca <- PCA(var_acp, quanti.sup=27:97, graph=FALSE)
 eig.val <- get_eigenvalue(res.pca)
 fviz_screeplot(res.pca, addlabels = TRUE, ylim = c (0, 45))
 var <- get_mca_var(res.pca)

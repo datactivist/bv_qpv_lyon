@@ -544,39 +544,76 @@ var_acp <- full_join(var_actives, var_supp, by = 'bureau_vote_id') |>
            -bureau_vote_id)
 
 
-
-# ACP
 library(FactoMineR)
-#res <- prcomp(var_acp, center = TRUE, scale = TRUE)
-res.pca <- PCA(var_acp, quanti.sup=27:97, graph=FALSE)
+library(factoextra)
+library(corrplot)
+
+# ACP sans variables quanti supp
+var_acp_sans_sup <- var_acp |> select(1:25)
+res.pca <- PCA(var_acp_sans_sup, graph=FALSE)
 eig.val <- get_eigenvalue(res.pca)
 fviz_screeplot(res.pca, addlabels = TRUE, ylim = c (0, 45))
-var <- get_mca_var(res.pca)
-fviz_mca_var (res.pca, choice = "mca.cor",
+var <- get_pca_var(res.pca)
+fviz_pca_var(res.pca, choice = "pca.cor",
             repel = TRUE, 
             ggtheme = theme_minimal ())
-fviz_mca_var(res.pca, col.var = "cos2",
+fviz_pca_var(res.pca, col.var = "cos2",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE, 
              ggtheme = theme_minimal())
 corrplot(var$cos2, is.corr=FALSE)
-fviz_contrib(res.pca, choice = "var", axes = 1, top = 10)
-fviz_contrib(res.pca, choice = "var", axes = 2, top = 10)
+fviz_contrib(res.pca, choice = "var", axes = 1, top = 15)
+fviz_contrib(res.pca, choice = "var", axes = 2, top = 15)
 
-fviz_mca_ind(res.pca,
+fviz_pca_ind(res.pca,
              label = "none", # masquer le texte des individus
-             habillage = "Analyse, traitement, calcul", # colorer par groupes
+             #habillage = "Analyse, traitement, calcul", # colorer par groupes
              palette = c ("#00AFBB", "#E7B800"),
              addEllipses = TRUE, ellipse.type = "confidence",
              ggtheme = theme_minimal ())
-fviz_mca_ind(res.pca, habillage = 3, addEllipses = TRUE)
-#fviz_mca_ind(res.pca, habillage = cycle_de_vie$`Analyse, traitement, calcul`, addEllipses = TRUE)
-fviz_ellipses(res.pca, 1:7,
-              geom = "point", palette = "simpsons")
+#fviz_ellipses(res.pca, 1:7, geom = "point", palette = "simpsons")
 
-res.desc <- dimdesc (res.pca, axes = c(1,2))
+res.desc <- dimdesc(res.pca, axes = c(1,2))
 res.desc[[1]]
 res.desc[[2]]
+
+# ACP avec variables quanti supp
+res.pca <- PCA(var_acp, quanti.sup=26:97, graph=FALSE)
+eig.val <- get_eigenvalue(res.pca)
+fviz_screeplot(res.pca, addlabels = TRUE, ylim = c (0, 45))
+var <- get_pca_var(res.pca)
+fviz_pca_var(res.pca, choice = "pca.cor",
+            repel = TRUE, 
+            ggtheme = theme_minimal ())
+fviz_pca_var(res.pca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, 
+             ggtheme = theme_minimal())
+corrplot(var$cos2, is.corr=FALSE)
+fviz_contrib(res.pca, choice = "var", axes = 1, top = 15)
+fviz_contrib(res.pca, choice = "var", axes = 2, top = 15)
+
+fviz_pca_ind(res.pca,
+             label = "none", # masquer le texte des individus
+             #habillage = "Analyse, traitement, calcul", # colorer par groupes
+             palette = c ("#00AFBB", "#E7B800"),
+             addEllipses = TRUE, ellipse.type = "confidence",
+             ggtheme = theme_minimal ())
+#fviz_ellipses(res.pca, 1:7, geom = "point", palette = "simpsons")
+
+res.desc <- dimdesc(res.pca, axes = c(1,2))
+res.desc[[1]]
+res.desc[[2]]
+
+
+# Kmeans
+set.seed(123)
+res.km <- kmeans(var$coord, centers = 3, nstart = 25)
+grp <- as.factor(res.km$cluster)
+# Color variables by groups
+fviz_pca_var(res.pca, col.var = grp, 
+             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
+             legend.title = "Cluster")
 ```
 
 

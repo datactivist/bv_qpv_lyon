@@ -521,6 +521,8 @@ violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 201
 # Analyse en composantes principales
 
 ```{r code ACP}
+# il faut conduire l'ACP sur des pourcentages, pas des valeurs absolues (sinon tout est écrasé par l'effet volume)
+
 #- ACP avec en 
 #- individus actifs : les BV en 2017 
     #variables actives : les résultats pour P17T1, P17T2 
@@ -532,21 +534,24 @@ violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 201
 # Préparation des données
 var_actives <- left_join(as.data.frame(bv_p17_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p17_t1')), 
                          as.data.frame(bv_p17_t2) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p17_t2')), 
-                         by = 'bureau_vote_id') 
+                         by = 'bureau_vote_id')  |> 
+    select(bureau_vote_id, contains(c("_ins", ".ins")), -contains("code_insee"))
 var_supp_pre <- left_join(as.data.frame(bv_p22_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p22_t1')), 
                           as.data.frame(bv_p22_t2) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_p22_t2')), 
-                          by = 'bureau_vote_id')
+                          by = 'bureau_vote_id') |> 
+    select(bureau_vote_id, contains(c("_ins", ".ins")), -contains("code_insee"))
 var_supp_leg <- left_join(as.data.frame(bv_l17_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_l17_t1')), 
                           as.data.frame(bv_l22_t1) |> rename_at(vars(-bureau_vote_id), ~ paste0(., '_l22_t1')), 
-                          by = 'bureau_vote_id')
+                          by = 'bureau_vote_id')  |> 
+    select(bureau_vote_id, contains(c("_ins", ".ins")), -contains("code_insee"))
 var_supp <- full_join(var_supp_pre, var_supp_leg, by = 'bureau_vote_id')
 var_acp <- full_join(var_actives, var_supp, by = 'bureau_vote_id') |> 
-    select(-starts_with(c("code_insee", "CodeInsee", "CodeDepartement", "Département", "CodeCirco", "Commune", "NumeroBV", "geom", "id_", "Code.du.département", "type", "Code.de.la.circonscription", "Code.de.la.commune", "Code.du.b.vote", "NbCand", "NumeroCirco", "CodeCommune")), 
-           -contains(c("_ins", "_vot_", ".ins", ".exp")),
-           -bureau_vote_id)
+    select(-starts_with(c("code_insee", "CodeInsee", "CodeDepartement", "Département", "CodeCirco", "Commune", "NumeroBV", "geom", "id_", "Code.du.département", "type", "Code.de.la.circonscription", "Code.de.la.commune", "Code.du.b.vote", "NbCand", "NumeroCirco", "CodeCommune"))) |>
+    column_to_rownames("bureau_vote_id") |>
+    rename_with(~ str_replace(., "[\\._]ins", ""))
 
 # ACP sans variables quanti supp
-var_acp_sans_sup <- var_acp |> select(1:25)
+var_acp_sans_sup <- var_acp |> select(contains("p17"))
 res.pca <- PCA(var_acp_sans_sup, graph=FALSE)
 ```
 

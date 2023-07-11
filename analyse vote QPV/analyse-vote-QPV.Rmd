@@ -29,7 +29,7 @@ knitr::opts_chunk$set(
 	warning = FALSE,
 	collapse = TRUE,
 	out.width = "100%",
-	results = "asis"#,
+	results = "asis",
 	cache = TRUE
 )
 ```
@@ -275,61 +275,10 @@ pop_communes <- read_delim("https://public.opendatasoft.com/api/explore/v2.1/cat
 ```
 
 
-### BV
 
-```{r pop BV, fig.height=7}
-rbind(bv_l17_t1 |> 
-        mutate(type = "Législatives 2017 tour 1", Population = 1386000) |> 
-        select(code_insee, Population, Inscrits, Votants, type),
-      bv_l22_t1 |> 
-        mutate(type = "Législatives 2022 tour 1", Population = 1411570) |> 
-        select(code_insee, Population, Inscrits, Votants, type),
-      bv_p17_t1 |> 
-        mutate(type = "Présidentielles 2017 tour 1", Population = 1386000) |> 
-        select(code_insee, Population, Inscrits, Votants, type),
-      bv_p22_t1 |> 
-        mutate(type = "Présidentielles 2022 tour 1", Population = 1411570) |> 
-        select(code_insee, Population, Inscrits, Votants, type),
-      bv_p17_t2 |> 
-        mutate(type = "Présidentielles 2017 tour 2", Population = 1386000) |> 
-        select(code_insee, Population, Inscrits, Votants, type),
-      bv_p22_t2 |> 
-        mutate(type = "Présidentielles 2022 tour 2", Population = 1411570) |> 
-        select(code_insee, Population, Inscrits, Votants, type)) |> 
-  group_by(type) |> 
-  mutate(Inscrits = sum(Inscrits, na.rm = T),
-         Votants = sum(Votants, na.rm = T)) |> 
-  as.data.frame() |> 
-  select(-c(code_insee, geom)) |> 
-  distinct() |> 
-  mutate(total = Population) |> 
-  pivot_longer(cols = -c(type, total), names_to = "compte", values_to = "nb") |> 
-  mutate(percent = paste0(round(nb/total*100, 0), "%"),
-         compte = fct_reorder(compte, nb, .desc = TRUE)) |> 
-  ggplot(aes(x = compte, y = nb, group = type)) +
-    geom_bar(stat = "identity", width = .6, fill = "wheat2", color = "black") +
-    labs(x = "", y = "Nombre de personnes", 
-         title = "Répartition des votants et inscrits parmi la population \n(en 2017 et 2022) des communes des bureaux de vote") +
-    theme_classic() +
-    theme(legend.position = "none",
-          text = element_text(family = "Monsterrat", size = 12),
-          plot.title = element_text(face = "bold"),
-          axis.title.y = element_blank(),
-          panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
-          axis.line.y = element_blank(),
-          axis.ticks.y = element_blank()) +
-    geom_text(aes(y = nb + 0.1*max(nb), x = compte, label = percent), 
-              color = "#333333", size = 3, check_overlap = T) +
-    facet_wrap(~type, ncol = 2, scales='free') +
-    scale_y_continuous(labels = scales::comma)
-```
-
-
-### QPV
-
-```{r pop QPV, fig.height=7}
-# QPV
-rbind(qpv_l17_t1 |> 
+```{r test_facet_cens}
+rbind(
+    rbind(qpv_l17_t1 |> 
         left_join(pop_qpv |> select(codeQPV, popMuniQPV),
                           by = c("CODE_QP" = "codeQPV")) |> 
         select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
@@ -374,24 +323,60 @@ rbind(qpv_l17_t1 |>
   distinct() |> 
   mutate(total = Population) |> 
   pivot_longer(cols = -c(type, total), names_to = "compte", values_to = "nb") |> 
-  mutate(percent = paste0(round(nb/total*100, 0), "%"),
-         compte = fct_reorder(compte, nb, .desc = TRUE)) |> 
-  ggplot(aes(x = compte, y = nb, group = type)) +
-    geom_bar(stat = "identity", width = .6, fill = "brown3", color = "black") +
-    labs(x = "", y = "Nombre de personnes", 
-         title = "Répartition des votants et inscrits parmi la population \n(en 2018) des quartiers prioritaires") +
+  mutate(percent = nb/total*100,
+         percent_lbl = paste0(round(percent), " %"),
+         compte = fct_reorder(compte, nb, .desc = TRUE),
+         scope = "QPV"),
+      rbind(bv_l17_t1 |> 
+            mutate(type = "Législatives 2017 tour 1", Population = 1386000) |> 
+            select(code_insee, Population, Inscrits, Votants, type),
+          bv_l22_t1 |> 
+            mutate(type = "Législatives 2022 tour 1", Population = 1411570) |> 
+            select(code_insee, Population, Inscrits, Votants, type),
+          bv_p17_t1 |> 
+            mutate(type = "Présidentielles 2017 tour 1", Population = 1386000) |> 
+            select(code_insee, Population, Inscrits, Votants, type),
+          bv_p22_t1 |> 
+            mutate(type = "Présidentielles 2022 tour 1", Population = 1411570) |> 
+            select(code_insee, Population, Inscrits, Votants, type),
+          bv_p17_t2 |> 
+            mutate(type = "Présidentielles 2017 tour 2", Population = 1386000) |> 
+            select(code_insee, Population, Inscrits, Votants, type),
+          bv_p22_t2 |> 
+            mutate(type = "Présidentielles 2022 tour 2", Population = 1411570) |> 
+            select(code_insee, Population, Inscrits, Votants, type)) |> 
+      group_by(type) |> 
+      mutate(Inscrits = sum(Inscrits, na.rm = T),
+             Votants = sum(Votants, na.rm = T)) |> 
+      as.data.frame() |> 
+      select(-c(code_insee, geom)) |> 
+      distinct() |> 
+      mutate(total = Population) |> 
+      pivot_longer(cols = -c(type, total), names_to = "compte", values_to = "nb") |> 
+      mutate(percent = nb/total*100,
+         percent_lbl = paste0(round(percent), " %"),
+         compte = fct_reorder(compte, nb, .desc = TRUE),
+         scope = "Tous BV")
+) |>
+    ggplot(aes(x = compte, y = percent)) +
+    geom_bar(aes(fill = factor(scope, levels = c("Tous BV", "QPV"))), stat = "identity", position = position_dodge(), width = .6, color = "black") +
+    labs(x = "",
+         title = "Le poids des votants dans la population est systématiquement\nplus faible dans les QPV") +
     theme_classic() +
-    theme(legend.position = "none",
-          text = element_text(family = "Monsterrat", size = 12),
+    theme(legend.position = "bottom",
+          text = element_text(family = "Monserrat", size = 12),
           plot.title = element_text(face = "bold"),
           axis.title.y = element_blank(),
           panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank()) +
-    geom_text(aes(y = nb + 0.1*max(nb), x = compte, label = percent), 
-              color = "#333333", size = 3, check_overlap = T) +
+    # geom_text(aes(y = percent + 0.1*max(percent), label = percent_lbl), 
+    #           color = "#333333", size = 3, check_overlap = T) +
+    scale_fill_discrete() +
     facet_wrap(~type, ncol = 2, scales='free') +
-    scale_y_continuous(labels = scales::comma)
+    scale_y_continuous(labels = scales::comma) +
+    labs(fill = "Territoire")
+    
 ```
 
 

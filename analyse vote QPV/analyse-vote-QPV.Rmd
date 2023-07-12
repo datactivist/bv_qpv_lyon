@@ -61,6 +61,7 @@ library(FactoMineR)
 library(factoextra)
 library(corrplot)
 library(see)
+library(plotly)
 
 # Données
 bv_2017 <- st_read(here("output_data", "bv_2017.gpkg"))
@@ -269,9 +270,10 @@ sync(p2017,p2022)
 # Import données externes
 pop_qpv <- st_read(here("output_data", "data_pop_qpv_2018.csv"))
 pop_communes <- read_delim("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/demographyref-france-pop-legale-commune-arrondissement-municipal/exports/csv?lang=fr&facet=facet(name%3D%22reg_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22arrdep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_name%22%2C%20disjunctive%3Dtrue)&refine=dep_code%3A%2269%22&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B", ";") |> 
-  mutate(code_insee = as.character(`Code Officiel Commune / Arrondissement Municipal`)) |> 
-  select(code_insee, `Population municipale`) |> 
-  rename(Population = `Population municipale`)
+  mutate(code_insee = as.character(`Code Officiel Commune / Arrondissement Municipal`))
+pop_communes_select <- pop_communes |> 
+    select(code_insee, `Population municipale`) |> 
+    rename(Population = `Population municipale`)
 ```
 
 
@@ -538,17 +540,19 @@ var_acp_sans_sup <- var_acp |> select(contains("p17"))
 res.pca <- PCA(var_acp_sans_sup, graph=FALSE)
 
 # Thème custom des graphs de sortie pour plus de lisibilité
-theme_acp_1.2 <- function(plot){
-    plot +
-    geom_label(aes(x = 1.15, y = 0), hjust = 0.5, label = "Abstention", font = "Helvetica", label.size = NA, size = 4) +
-    geom_label(aes(x = -1.15, y = 0), hjust = 0.5, label = "Droite macroniste", font = "Helvetica", label.size = NA, size = 4) +
-    geom_label(aes(x = 0, y = 1.05), hjust = 0, label = "Extrême \ndroite", font = "Helvetica", label.size = NA, size = 4) +
-    geom_label(aes(x = 0, y = -1.05), hjust = 1, label = "Extrême \ngauche", font = "Helvetica", label.size = NA, size = 4) +
-    xlim(-1.2, 1.2) +
-    ylim(-1.4, 1.4) + 
+theme_acp_1.2 <- function(plot, xmin, xmax, ymin, ymax, titre,
+                          x_abs, y_abs, x_macr, y_macr, x_EXD, y_EXD, x_EXG, y_EXG){
+    plot + 
+    geom_label(aes(x = x_abs, y = y_abs), hjust = 0.5, label = "Abstention", label.size = NA, size = 4) +
+    geom_label(aes(x = x_macr, y = y_macr), hjust = 0.5, label = "Droite et Macron", label.size = NA, size = 4) +
+    geom_label(aes(x = x_EXD, y = y_EXD), hjust = 0, label = "Extrême \ndroite", label.size = NA, size = 4) +
+    geom_label(aes(x = x_EXG, y = y_EXG), hjust = 1, label = "Gauche", label.size = NA, size = 4) +
+    xlim(xmin, xmax) +
+    ylim(ymin, ymax) + 
     coord_flip() +
+    scale_x_continuous(trans = "reverse") +
     labs(x = "Dimension 1 (29.1%)", y = "Dimension 2 (19.1%)",
-         title = "Projection des variables sur les deux premières dimensions")
+         title = titre)
 }
 ```
 
@@ -569,7 +573,11 @@ fviz_pca_var(res.pca, col.var = "cos2",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE, 
              ggtheme = theme_minimal()) |> 
-    theme_acp_1.2()
+    theme_acp_1.2(titre = "Projection des variables sur les deux premières dimensions",
+                  xmin = -1.2, xmax = 1.2, ymin = -1.3, ymax = 1.4,
+                  x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05) +
+    scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .5,
+                          low="#00AFBB", mid = "#E7B800", high="#FC4E07")
 ```
 
 
@@ -580,7 +588,8 @@ fviz_pca_var(res.pca, col.var = "cos2",
              axes = c(1, 3),
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE, 
-             ggtheme = theme_minimal())
+             ggtheme = theme_minimal()) #|> 
+    #theme_acp_1.3(titre = "Projection des variables sur les dimensions 1 et 3")
 ```
 
 
@@ -679,8 +688,12 @@ fviz_pca_ind(res.pca,
              select.ind = list("cos2" = 25),
              label = "ind", #masquer le texte des individus
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE)|> 
-    theme_acp_1.2()
+             repel = TRUE) |> 
+    theme_acp_1.2("Projection des 25 BV les mieux représentés sur les deux premières dimensions",
+                  xmin = -5, xmax = 7, ymin = -6, ymax = 8.6,
+                  x_abs = 6.9, y_abs = 0, x_macr = -5.9, y_macr = 0, x_EXD = 0, y_EXD = 6.9, x_EXG = 0, y_EXG = -4.5) +
+    scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .85,
+                          low="#00AFBB", mid = "#E7B800", high="#FC4E07")
 ```
 
 
@@ -706,10 +719,14 @@ fviz_pca_biplot(res.pca,
                 col.ind = "#696969",  # Individuals color,
                 alpha.ind = "cos2"
                 ) |> 
-    theme_acp_1.2()
+    theme_acp_1.2("Projection des BV et des variables sur les deux premières dimensions",
+                  xmin = -8, xmax = 8, ymin = -6, ymax = 8,
+                  x_abs = 7.5, y_abs = 0, x_macr = -7.5, y_macr = 0, x_EXD = 0, y_EXD = 6.9, x_EXG = 0, y_EXG = -5)# +
+    #scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .85,
+    #                      low="#00AFBB", mid = "#E7B800", high="#FC4E07")
 ```
 
-```{r biplot13}
+```{r biplot13, eval=FALSE, include=FALSE}
 fviz_pca_biplot(res.pca, 
                 axes = c(1,3),
                 repel = TRUE,
@@ -732,7 +749,11 @@ grp <- as.factor(res.km$cluster)
 fviz_pca_var(res.pca, col.var = grp, 
              palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
              legend.title = "Cluster") |> 
-    theme_acp_1.2()
+    theme_acp_1.2(titre = "Projection des variables regroupées par cluster",
+                  xmin = -1.2, xmax = 1.2, ymin = -1.3, ymax = 1.4,
+                  x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05)# +
+    #scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .5,
+    #                      low="#00AFBB", mid = "#E7B800", high="#FC4E07")
 ```
 
 #### Variables supplémentaires
@@ -745,7 +766,9 @@ fviz_pca_var(res.pca_quanti.sup,
              col.quanti.sup = "red", # Suppl. quantitative variables
              select.var = list(cos2 = 25)
              ) |> 
-    theme_acp_1.2()
+    theme_acp_1.2(titre = "Projection des variables supplémentaires sur les deux premières dimensions",
+                  xmin = -1.2, xmax = 1.2, ymin = -1.3, ymax = 1.4,
+                  x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05)
 ```
 
 #### Individus supplémentaires{.tabset}
@@ -780,8 +803,7 @@ ensemble <- rbind(var_acp |> mutate(type = "Tous BV"),
 ##### Dimensions 1 et 2
 
 ```{r}
-res.pca_ind.sup <- PCA(ensemble[,-80], ind.sup=890:926, quanti.sup=20:79, graph=T, axes = c(1, 2)) |> 
-    theme_acp_1.2()
+res.pca_ind.sup <- PCA(ensemble[,-80], ind.sup=890:926, quanti.sup=20:79, graph=T, axes = c(1, 2))
 ```
 
 ##### Dimensions 1 et 3
@@ -791,19 +813,40 @@ res.pca_ind.sup <- PCA(ensemble[,-80], ind.sup=890:926, quanti.sup=20:79, graph=
 res.pca_ind.sup <- PCA(ensemble[,-80], ind.sup=890:926, quanti.sup=20:79, graph=T, axes = c(1, 3))
 ```
 
-##### Couleurs par type
+#### Couleurs par type
 
-```{r}
+```{r version interactive}
 res.pca_all <- PCA(ensemble[,-80], graph = FALSE)
-fviz_pca_ind(res.pca_all,
-             geom.ind = "point", # show points only (nbut not "text")
-             col.ind = ensemble$type, # color by groups
-             palette = c("#00AFBB", "#E7B800"),
-             addEllipses = TRUE, # Concentration ellipses
-             legend.title = "Groups") |> 
-    theme_acp_1.2()
+graph <- left_join(ensemble |> select(type) |> rownames_to_column(),
+                  res.pca_all$ind$coord |> as.data.frame() |> rownames_to_column(), by = "rowname") |> 
+    left_join(pop_qpv |> select(codeQPV, libQPV, listeLibDepcom) |> 
+                  rename(id = codeQPV, nom = libQPV, commune = listeLibDepcom),
+              by = c("rowname" = "id")) |> 
+    ggplot() +
+    geom_point(aes(x = Dim.1, y = Dim.2, group = type, color = type, shape = type, 
+                   text = ifelse(type == "QPV",
+                                 paste0("QPV n°", rowname, "\nNom : ", nom, "\nCommune : ", commune),
+                                 paste0("BV n°", rowname)))) +
+    stat_ellipse(aes(x = Dim.1, y = Dim.2, group = type, color = type, fill = type), type = "norm") +
+    theme_minimal() +
+    scale_color_manual(name = "", values = c("Tous BV" = "wheat2", "QPV" = "brown3")) +
+    scale_fill_manual(name = "", values = c("Tous BV" = "wheat2", "QPV" = "brown3")) +
+    geom_hline(aes(yintercept = 0), linetype = "dashed") +
+    geom_vline(aes(xintercept = 0), linetype = "dashed") +
+    geom_label(aes(x = 13, y = 0), hjust = 0.5, label = "Abstention", label.size = NA, size = 4) +
+    geom_label(aes(x = -11, y = 0), hjust = 0.5, label = "Droite et Macron", label.size = NA, size = 4) +
+    geom_label(aes(x = 0, y = 9), hjust = 0, label = "Extrême \ndroite", label.size = NA, size = 4) +
+    geom_label(aes(x = 0, y = -9), hjust = 1, label = "Gauche", label.size = NA, size = 4) +
+    xlim(-12, 13.5) +
+    ylim(-11, 12) + 
+    coord_flip() +
+    scale_x_continuous(trans = "reverse") +
+    labs(x = "Dimension 1 (29.1%)", y = "Dimension 2 (19.1%)",
+         title = "Projection des BV et QPV sur les deux premières dimensions") +
+    guides(fill = "none", shape = "none", alpha = "none", 
+           color = guide_legend(label.vjust = 1)) 
+ggplotly(graph, tooltip = "text")
 ```
-
 
 ```{r}
 #- comparaison de la distribution du vote pour chaque comportement principal par BV entre l'ensemble des BV de la Métropole et les QPV (avec `geom_dotplot` par exemple)

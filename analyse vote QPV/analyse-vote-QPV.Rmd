@@ -62,6 +62,7 @@ library(factoextra)
 library(corrplot)
 library(see)
 library(plotly)
+library(glue)
 
 # Données
 bv_2017 <- st_read(here("output_data", "bv_2017.gpkg"))
@@ -80,6 +81,11 @@ qpv_p17_t1 <- st_read(here("output_data", "qpv69_pres_17_t1.gpkg"))
 qpv_p17_t2 <- st_read(here("output_data", "qpv69_pres_17_t2.gpkg"))
 qpv_p22_t1 <- st_read(here("output_data", "qpv69_pre_22_t1.gpkg"))
 qpv_p22_t2 <- st_read(here("output_data", "qpv69_pre_22_t2.gpkg"))
+
+# Fonction export des graphiques statiques
+saving_plot <- function(graph, name, width, height) {
+  ggsave(file = glue("Save_graphs/{name}.png"), plot=graph, width=width, height=height)
+}
 ```
 
 ## Localisation des BV
@@ -115,7 +121,7 @@ evolution_bv_longer <- evolution_bv |>
                                                 "Bureaux de votes supprimés", "Bureaux de votes créés")))
 
 # Visualisation des découpages 2017 vs. 2022
-evolution_bv_longer |> 
+graph <- evolution_bv_longer |> 
     ggplot() +
         geom_sf(aes(geometry = geom, fill = evol_bv_neutre_2017)) +
         scale_fill_manual(values = c("Bureaux de votes identiques" = "wheat2", "Bureaux de votes redécoupés" = "wheat3", 
@@ -130,6 +136,8 @@ evolution_bv_longer |>
         theme(plot.title = element_text(face = "bold"),
               plot.caption = element_text(face = "italic", hjust = 0),
               strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
+graph
+saving_plot(graph, "BV_2017_2022", 12, 7)
 # nom des comm de plus de 20.000 hab
 # nombre d'inscrits / nombre d'habitants en âge de voter en popup -> Joël
 ```
@@ -158,6 +166,8 @@ p2022 <- evolution_bv_longer |>
                       "Bureaux de votes supprimés" = "#999999", "Bureaux de votes créés" = "brown3"),
       popup = popupTable(evolution_bv_longer, zcol = c("code_insee_2022")))
 sync(p2017,p2022)
+mapshot(p2017, url = "Save_cartos/carte_BV_2017.html")
+mapshot(p2022, url = "Save_cartos/carte_BV_2022.html")
 #p2017 | p2022
 # titre, sous-titre, caption
 # popup
@@ -169,7 +179,7 @@ sync(p2017,p2022)
 
 ```{r Inscrits BV 17-22, out.width='60%'}
 # Nuage de points sur le nombre d'inscrits dans le BV 2017 et 2022
-full_join(bv_p17_t1 |> as.data.frame(),
+graph <- full_join(bv_p17_t1 |> as.data.frame(),
           bv_p22_t1 |> as.data.frame(), 
           by = "bureau_vote_id", suffix = c("_2017", "_2022")) |> 
   select(bureau_vote_id, Inscrits_2017, Inscrits_2022) |> 
@@ -183,6 +193,8 @@ full_join(bv_p17_t1 |> as.data.frame(),
   theme_classic() +
   theme(plot.title = element_text(hjust = 1),
         plot.subtitle = element_text(face = "italic"))
+graph
+saving_plot(graph, "Redecoupage_BV",7, 5)
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -257,6 +269,8 @@ p2022 <- evolution_bv_qpv |>
       basemaps.color.shuffle = FALSE, map.types = "CartoDB.Positron",
       col.regions = c("Bureaux de vote" = "wheat2", "Quartiers prioritaires" = "brown3"))
 sync(p2017,p2022)
+mapshot(p2017, url = "Save_cartos/carte_QPV_2017.html")
+mapshot(p2022, url = "Save_cartos/carte_QPV_2022.html")
 ```
 
 
@@ -279,7 +293,7 @@ pop_communes_select <- pop_communes |>
 
 
 ```{r test_facet_cens, fig.height=7}
-rbind(
+graph <- rbind(
     rbind(qpv_l17_t1 |> 
         left_join(pop_qpv |> select(codeQPV, popMuniQPV),
                           by = c("CODE_QP" = "codeQPV")) |> 
@@ -376,7 +390,8 @@ rbind(
     facet_wrap(~type, ncol = 2, scales='free') +
     scale_y_continuous(labels = scales::comma) +
     labs(fill = "Territoire")
-    
+graph
+saving_plot(graph, "population_inscrits_votants", 7, 9)
 ```
 
 
@@ -432,38 +447,50 @@ violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
 ### Pres.17 tour 1
 
 ```{r fig.height=10}
-violinplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "", 0, 50)
+graph <- violinplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "", 0, 50)
+graph
+saving_plot(graph, "violin_p17_t1", 7, 10)
 ```
 
 ### Pres.17 tour 2
 
 ```{r fig.height=5}
-violinplot_comp(bv_p17_t2, qpv_p17_t2, "au second tour des présidentielles de 2017", "", 0, 60)
+graph <- violinplot_comp(bv_p17_t2, qpv_p17_t2, "au second tour des présidentielles de 2017", "", 0, 60)
+graph
+saving_plot(graph, "violin_p17_t2", 7, 6)
 ```
 
 ### Leg.17 tour 1
 
 ```{r fig.height=10}
-violinplot_comp(bv_l17_t1, qpv_l17_t1, "au premier tour des législatives de 2017", "", 0, 80)
+graph <- violinplot_comp(bv_l17_t1, qpv_l17_t1, "au premier tour des législatives de 2017", "", 0, 80)
+graph
+saving_plot(graph, "violin_l17_t1", 7, 10)
 ```
 
 
 ### Pres.22 tour 1
 
 ```{r fig.height=10}
-violinplot_comp(bv_p22_t1, qpv_p22_t1, "au premier tour des présidentielles de 2022", "", 0, 80)
+graph <- violinplot_comp(bv_p22_t1, qpv_p22_t1, "au premier tour des présidentielles de 2022", "", 0, 80)
+graph
+saving_plot(graph, "violin_p22_t1", 7, 10)
 ```
 
 ### Pres.22 tour 2
 
 ```{r fig.height=5}
-violinplot_comp(bv_p22_t2, qpv_p22_t2, "au second tour des présidentielles de 2022", "", 0, 80)
+graph <- violinplot_comp(bv_p22_t2, qpv_p22_t2, "au second tour des présidentielles de 2022", "", 0, 80)
+graph
+saving_plot(graph, "violin_p22_t2", 7, 6)
 ```
 
 ### Leg.22 tour 1
 
 ```{r fig.height=10}
-violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 2017", "", 0, 80)
+graph <- violinplot_comp(bv_l22_t1, qpv_l22_t1, "au premier tour des législatives de 2017", "", 0, 80)
+graph
+saving_plot(graph, "violin_l22_t1", 7, 10)
 ```
 
 
@@ -561,7 +588,9 @@ theme_acp_1.2 <- function(plot, xmin, xmax, ymin, ymax, titre,
 ```{r variance, out.width='60%'}
     # Scree plot
 var <- get_pca_var(res.pca)
-fviz_screeplot(res.pca, addlabels = TRUE, ylim = c (0, 45))
+graph <- fviz_screeplot(res.pca, addlabels = TRUE, ylim = c (0, 45))
+graph
+saving_plot(graph, "ACP_variance_expliquee", 8, 6)
 ```
 
 #### Variables{.tabset}
@@ -569,7 +598,7 @@ fviz_screeplot(res.pca, addlabels = TRUE, ylim = c (0, 45))
 ##### Dimensions 1 et 2
 
 ```{r}
-fviz_pca_var(res.pca, col.var = "cos2",
+graph <- fviz_pca_var(res.pca, col.var = "cos2",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE, 
              ggtheme = theme_minimal()) |> 
@@ -578,18 +607,22 @@ fviz_pca_var(res.pca, col.var = "cos2",
                   x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05) +
     scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .5,
                           low="#00AFBB", mid = "#E7B800", high="#FC4E07")
+graph
+saving_plot(graph, "ACP_var_dim1.2", 8, 6)
 ```
 
 
 ##### Dimensions 1 et 3
 
 ```{r}
-fviz_pca_var(res.pca, col.var = "cos2",
+graph <- fviz_pca_var(res.pca, col.var = "cos2",
              axes = c(1, 3),
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE, 
              ggtheme = theme_minimal()) #|> 
     #theme_acp_1.3(titre = "Projection des variables sur les dimensions 1 et 3")
+graph
+saving_plot(graph, "ACP_var_dim1.2", 8, 6)
 ```
 
 
@@ -604,20 +637,26 @@ corrplot(var$cos2, is.corr=FALSE)
 ##### Dimension 1
 
 ```{r cos2.1, out.width='60%'}
-fviz_cos2(res.pca, choice = "var", axes = 1, top = 15)
+graph <- fviz_cos2(res.pca, choice = "var", axes = 1, top = 15)
+graph
+saving_plot(graph, "ACP_cos2_dim1", 9, 6)
 ```
 
 ##### Dimension 2
 
 
 ```{r cos2.2, out.width='60%'}
-fviz_cos2(res.pca, choice = "var", axes = 2, top = 15)
+graph <- fviz_cos2(res.pca, choice = "var", axes = 2, top = 15)
+graph
+saving_plot(graph, "ACP_cos2_dim2", 9, 6)
 ```
 
 ##### Dimension 3
 
 ```{r cos2.3, out.width='60%'}
-fviz_cos2(res.pca, choice = "var", axes = 3, top = 15)
+graph <- fviz_cos2(res.pca, choice = "var", axes = 3, top = 15)
+graph
+saving_plot(graph, "ACP_cos2_dim3", 9, 6)
 ```
 
 
@@ -632,20 +671,26 @@ corrplot(var$contrib, is.corr=FALSE)
 ##### Dimension 1
 
 ```{r contrib.1, out.width='60%'}
-fviz_contrib(res.pca, choice = "var", axes = 1, top = 15)
+graph <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 15)
+graph
+saving_plot(graph, "ACP_contrib_dim1", 9, 6)
 ```
 
 ##### Dimension 2
 
 
 ```{r contrib.2, out.width='60%'}
-fviz_contrib(res.pca, choice = "var", axes = 2, top = 15)
+graph <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 15)
+graph
+saving_plot(graph, "ACP_contrib_dim2", 9, 6)
 ```
 
 ##### Dimension 3
 
 ```{r contrib.3, out.width='60%'}
-fviz_contrib(res.pca, choice = "var", axes = 3, top = 15)
+graph <- fviz_contrib(res.pca, choice = "var", axes = 3, top = 15)
+graph
+saving_plot(graph, "ACP_contrib_dim3", 9, 6)
 ```
 
 
@@ -682,7 +727,7 @@ as.data.frame(res.desc$Dim.3) |> rownames_to_column() |> na.omit() |>
 ##### Dimensions 1 et 2
 
 ```{r individus, out.width='60%'}
-fviz_pca_ind(res.pca, 
+graph <- fviz_pca_ind(res.pca, 
              col.ind = "cos2", 
              axes = c(1, 2),
              select.ind = list("cos2" = 25),
@@ -694,6 +739,8 @@ fviz_pca_ind(res.pca,
                   x_abs = 6.9, y_abs = 0, x_macr = -5.9, y_macr = 0, x_EXD = 0, y_EXD = 6.9, x_EXG = 0, y_EXG = -4.5) +
     scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .85,
                           low="#00AFBB", mid = "#E7B800", high="#FC4E07")
+graph
+saving_plot(graph, "ACP_individus_1.2", 8, 6)
 ```
 
 
@@ -707,12 +754,14 @@ fviz_pca_ind(res.pca,
              label = "ind", #masquer le texte des individus
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
              repel = TRUE)
+graph
+saving_plot(graph, "ACP_individus_1.3", 8, 6)
 ```
 
 ##### Variables et individus
 
 ```{r biplot}
-fviz_pca_biplot(res.pca, 
+graph <- fviz_pca_biplot(res.pca, 
                 repel = TRUE,
                 label = "var", #masquer le texte des individus
                 col.var = "#2E9FDF", # Variables color
@@ -724,6 +773,8 @@ fviz_pca_biplot(res.pca,
                   x_abs = 7.5, y_abs = 0, x_macr = -7.5, y_macr = 0, x_EXD = 0, y_EXD = 6.9, x_EXG = 0, y_EXG = -5)# +
     #scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .85,
     #                      low="#00AFBB", mid = "#E7B800", high="#FC4E07")
+graph
+saving_plot(graph, "ACP_individus_variables_1.2", 8, 6)
 ```
 
 ```{r biplot13, eval=FALSE, include=FALSE}
@@ -737,31 +788,13 @@ fviz_pca_biplot(res.pca,
                 )
 ```
 
-#### Clusters de variables
-
-```{r}
-# Kmeans
-    # Preparation
-set.seed(123)
-res.km <- kmeans(var$coord, centers = 3, nstart = 25)
-grp <- as.factor(res.km$cluster)
-    # Color variables by groups
-fviz_pca_var(res.pca, col.var = grp, 
-             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
-             legend.title = "Cluster") |> 
-    theme_acp_1.2(titre = "Projection des variables regroupées par cluster",
-                  xmin = -1.2, xmax = 1.2, ymin = -1.3, ymax = 1.4,
-                  x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05)# +
-    #scale_color_gradient2(name = "Qualité de \nreprésentation", midpoint = .5,
-    #                      low="#00AFBB", mid = "#E7B800", high="#FC4E07")
-```
 
 #### Variables supplémentaires
 
 ```{r quanti.sup}
 res.pca_quanti.sup <- PCA(var_acp, quanti.sup=20:79, graph=FALSE)
     #graph
-fviz_pca_var(res.pca_quanti.sup,
+graph <- fviz_pca_var(res.pca_quanti.sup,
              col.var = "black",     # Active variables
              col.quanti.sup = "red", # Suppl. quantitative variables
              select.var = list(cos2 = 25)
@@ -769,6 +802,8 @@ fviz_pca_var(res.pca_quanti.sup,
     theme_acp_1.2(titre = "Projection des variables supplémentaires sur les deux premières dimensions",
                   xmin = -1.2, xmax = 1.2, ymin = -1.3, ymax = 1.4,
                   x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05)
+graph
+saving_plot(graph, "ACP_variables_supplementaires", 8, 6)
 ```
 
 #### Individus supplémentaires{.tabset}
@@ -833,10 +868,10 @@ graph <- left_join(ensemble |> select(type) |> rownames_to_column(),
     scale_fill_manual(name = "", values = c("Tous BV" = "wheat2", "QPV" = "brown3")) +
     geom_hline(aes(yintercept = 0), linetype = "dashed") +
     geom_vline(aes(xintercept = 0), linetype = "dashed") +
-    geom_label(aes(x = 13, y = 0), hjust = 0.5, label = "Abstention", label.size = NA, size = 4) +
-    geom_label(aes(x = -11, y = 0), hjust = 0.5, label = "Droite et Macron", label.size = NA, size = 4) +
-    geom_label(aes(x = 0, y = 9), hjust = 0, label = "Extrême \ndroite", label.size = NA, size = 4) +
-    geom_label(aes(x = 0, y = -9), hjust = 1, label = "Gauche", label.size = NA, size = 4) +
+    geom_text(aes(x = 13, y = 0), hjust = 0.5, label = "Abstention", label.size = NA, size = 4) +
+    geom_text(aes(x = -11, y = 0), hjust = 0.5, label = "Droite et Macron", label.size = NA, size = 4) +
+    geom_text(aes(x = 0, y = 9), hjust = 0, label = "Extrême \ndroite", label.size = NA, size = 4) +
+    geom_text(aes(x = -.5, y = -9), hjust = 1, label = "Gauche", fill = "white", size = 4) +
     xlim(-12, 13.5) +
     ylim(-11, 12) + 
     coord_flip() +
@@ -845,7 +880,13 @@ graph <- left_join(ensemble |> select(type) |> rownames_to_column(),
          title = "Projection des BV et QPV sur les deux premières dimensions") +
     guides(fill = "none", shape = "none", alpha = "none", 
            color = guide_legend(label.vjust = 1)) 
-ggplotly(graph, tooltip = "text")
+ggplty <- ggplotly(graph, tooltip = "text")
+ggplty
+htmlwidgets::saveWidget(
+                widget = ggplty, #the plotly object
+                file = "Save_graphs/couleurs_par_type.html", #the path & file name
+                selfcontained = TRUE #creates a single html file
+                )
 ```
 
 ```{r}
@@ -856,7 +897,57 @@ ggplotly(graph, tooltip = "text")
 #- graphique avec en abscisse 4 scrutins (P17T1, L17T1, P22T1, L22T1) et en ordonnée le vote, et une ligne par grand comportement électoral (ou alors un graphique par comportement électoral, avec `geom_facet`, ce qui permet de rajouter en repère le comportement national et celui de l'ensemble de la Métropole de Lyon) 
 ```
 
+#### Clusters de variables
 
+```{r}
+# Kmeans
+    # Preparation
+set.seed(123)
+res.km <- kmeans(var$coord, centers = 3, nstart = 25)
+grp <- as.factor(res.km$cluster)
+    # Color variables by groups
+graph <- fviz_pca_var(res.pca, col.var = grp, 
+             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
+             legend.title = "Cluster") |> 
+    theme_acp_1.2(titre = "Projection des variables regroupées par cluster",
+                  xmin = -1.2, xmax = 1.2, ymin = -1.3, ymax = 1.4,
+                  x_abs = 1.15, y_abs = 0, x_macr = -1.15, y_macr = 0, x_EXD = 0, y_EXD = 1.05, x_EXG = 0, y_EXG = -1.05)# +
+graph
+saving_plot(graph, "ACP_clusters", 8, 6)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+res.hcpc <- HCPC (res.pca, graph = FALSE, max = 3)
+fviz_dend(res.hcpc, show_labels = FALSE)
+# Individuals facor map
+fviz_cluster(res.hcpc, geom = "point", main = "Factor map")
+
+
+res.hcpc <- HCPC(res.pca, nb.clust = 0, min = 3, max = 10, graph = F)
+fviz_dend(res.hcpc, 
+          cex = 0.7,                     # Label size
+          palette = "jco",               # Color palette see ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Add rectangle around groups
+          rect_border = "jco",           # Rectangle color
+          labels_track_height = 0.8      # Augment the room for labels
+          )
+
+fviz_cluster(res.hcpc,
+             repel = TRUE,            # Avoid label overlapping
+             show.clust.cent = TRUE, # Show cluster centers
+             palette = "jco",         # Color palette see ?ggpubr::ggpar
+             ggtheme = theme_minimal(),
+             main = "Factor map"
+             )
+
+par(mar=c(1,1,1,7))
+dend %>%
+  set("labels_col", value = c("skyblue", "orange", "grey"), k=3) %>%
+  set("branches_k_color", value = c("skyblue", "orange", "grey"), k = 3) %>%
+  plot(horiz=TRUE, axes=FALSE)
+abline(v = 350, lty = 2)
+```
 
 
 

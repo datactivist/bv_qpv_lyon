@@ -395,11 +395,19 @@ saving_plot(graph, "population_inscrits_votants", 7, 9)
 ```
 
 
+```{r age_et_nationalite}
+download.file("https://www.insee.fr/fr/statistiques/fichier/7456573/estimations-demographiques_2019_csv_V2.zip", here("data", "estimations-demographiques_2019_qpv.csv"))
+demo_qpv <- read_csv2(here("data", "estimations-demographiques_2019_qpv.csv"))
+
+# TODO : faire graphique comparatif structure âge et nationalité QPV et Métropole
+```
+
+
 # Présentation des données
 
 ## Distribution des votes{.tabset}
 
-```{r function violinplot}
+```{r function_violinplot}
 violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
     common_cols <- intersect(colnames(bv), colnames(qpv))
     bv <- bv |> left_join(evolution_bv |> select(bureau_vote_id, perim_met), by = 'bureau_vote_id')
@@ -447,7 +455,7 @@ violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
 ### Pres.17 tour 1
 
 ```{r fig.height=10}
-graph <- violinplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "", 0, 50)
+graph <- violinplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "Les QPV présentent un profil électoral assez homogène\net marqué par le poids de l'abstention.", 0, 50)
 graph
 saving_plot(graph, "violin_p17_t1", 7, 10)
 ```

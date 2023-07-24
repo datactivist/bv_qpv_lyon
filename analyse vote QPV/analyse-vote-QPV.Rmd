@@ -256,12 +256,17 @@ evolution_bv_qpv <- rbind(evolution_bv_longer |> filter(annee == "2017") |> rena
 
 metropole <- st_read("https://data.grandlyon.com/geoserver/metropole-de-lyon/ows?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=metropole-de-lyon:adr_voie_lieu.adrmetropole&outputFormat=application/json&SRSNAME=EPSG:4171&sortBy=gid")
 
-contours_qpv <- mapview(qpv_p17_t1, 
+contours_qpv <- mapview(metropole, alpha.regions = 0.01,
+            legend = FALSE,
+            map.types = "CartoDB.Positron", label = NA, popup = FALSE) +
+    mapview(qpv_p17_t1 |>
+                select(CODE_QP, Inscrits) |> 
+                mutate(Inscrits = round(Inscrits)) |>
+                left_join(pop_qpv |> select(codeQPV, `Nom du QPV` = libQPV, `Commune` = listeLibDepcom), by = c("CODE_QP" = "codeQPV")),
       layer.name = "QPV",
       legend = FALSE,
-      map.types = "CartoDB.Positron") +
-    mapview(metropole, alpha.regions = 0.01,
-            legend = FALSE)
+      map.types = "CartoDB.Positron",
+      homebutton = FALSE) 
 
 mapshot(contours_qpv, url = "Save_cartos/carte_QPV_contours.html")
 

@@ -29,8 +29,7 @@ knitr::opts_chunk$set(
 	warning = FALSE,
 	collapse = TRUE,
 	out.width = "100%",
-	results = "asis",
-	cache = TRUE
+	results = "asis"
 )
 ```
 
@@ -375,9 +374,10 @@ graph <- rbind(
          scope = "Tous BV")
 ) |>
     ggplot(aes(x = compte, y = percent)) +
-    geom_bar(aes(fill = factor(scope, levels = c("Tous BV", "QPV"))), stat = "identity", position = position_dodge(), width = .6, color = "black") +
+    geom_bar(aes(fill = factor(scope, levels = c("Tous BV", "QPV"))), stat = "identity", position = position_dodge(), width = .6) +
     labs(x = "",
-         title = "Le poids des votants dans la population est systématiquement\nplus faible dans les QPV") +
+         title = "Le poids des votants dans la population est systématiquement\nplus faible dans les QPV", 
+         caption = "Sources : INSEE (recensement de la population 2018), Ministère de l'intérieur.") +
     theme_classic() +
     theme(legend.position = "bottom",
           text = element_text(family = "Monserrat", size = 12),
@@ -396,10 +396,108 @@ saving_plot(graph, "population_inscrits_votants", 7, 9)
 
 
 ```{r age_et_nationalite}
-download.file("https://www.insee.fr/fr/statistiques/fichier/7456573/estimations-demographiques_2019_csv_V2.zip", here("data", "estimations-demographiques_2019_qpv.csv"))
-demo_qpv <- read_csv2(here("data", "estimations-demographiques_2019_qpv.csv"))
 
-# TODO : faire graphique comparatif structure âge et nationalité QPV et Métropole
+
+
+# QPV
+# download.file("https://www.insee.fr/fr/statistiques/fichier/7456573/estimations-demographiques_2019_V2.xlsx", here("data", "estimations-demographiques_2019_V2.xlsx"))
+# demo_qpv <- readxl::read_xlsx(here("data", "estimations-demographiques_2019_V2.xlsx"), sheet = "Données QPV", skip = 5)
+# 
+# # filtre pour la métropole
+# demo_qpv <- demo_qpv |> 
+#     semi_join(qpv_l17_t1, by = join_by(codeGeo == CODE_QP))
+
+
+qpv_demo <- tribble(
+    ~ID,                 ~partPop0_14, ~partPop15_24, ~partPop25_59, ~partPop60_74, ~partPop75p, ~etrangers,
+    "QPV",               26.5        , 14.1         , 41.4         , 11.8         , 6.3        , 26.3                     
+)
+
+# Métropole
+
+download.file("https://www.insee.fr/fr/statistiques/fichier/6456157/BTX_TD_POP1B_2019.zip", here("data", "BTX_TD_POP1B_2019.zip"))
+unzip(here("data", "BTX_TD_POP1B_2019.zip"), exdir = here("data"))
+demo_metro <- readxl::read_xlsx(here("data", "BTX_TD_POP1B_2019.xlsx"), sheet = "COM", skip = 10)
+# filtre pour la métropole
+demo_metro <- demo_metro |>
+    semi_join(bv_communes_2022, by = join_by(CODGEO == code_insee))
+
+demo_metro <- demo_metro |>
+    pivot_longer(cols = !c(CODGEO, LIBGEO), names_to = "sexe_age", values_to = "count") |>
+    separate_wider_delim(sexe_age, delim = "_", names = c("sexe", "age")) |>
+    mutate(sexe = str_extract(sexe, "SEXE([12])", group = 1),
+           age = as.integer(str_extract(age, "AGED100([0-9]{3})", group = 1))) |>
+    group_by(CODGEO, LIBGEO, age) |>
+    summarise(count = sum(count)) |> 
+    ungroup() |>
+    mutate(age_group = case_when(age <= 14 ~ "0_14",
+                                 age > 14 & age <= 24 ~ "15_24",
+                                 age > 24 & age <= 59 ~ "25_59",
+                                 age > 59 & age <= 74 ~ "60_74",
+                                 age > 74 ~ "75p",
+                                 TRUE ~ NA)) |>
+    group_by(age_group) |>
+    summarise(count = sum(count)) |>
+    mutate(part = count / sum(count) * 100) |>
+    select(-count) |>
+    pivot_wider(names_from = age_group, values_from = part, names_prefix = "partPop") |>
+    mutate(ID = "Métropole")
+
+# nationalité dans les communes de la métropole
+download.file("https://www.insee.fr/fr/statistiques/fichier/6454329/BTX_TD_NAT1_2019.zip", here("data", "BTX_TD_NAT1_2019.zip"))
+
+unzip(here("data", "BTX_TD_NAT1_2019.zip"), exdir = here("data"))
+
+natio_metro <- readxl::read_xlsx(here("data", "BTX_TD_NAT1_2019.xlsx"), sheet = "COM", skip = 10)
+natio_metro <- natio_metro |>
+    semi_join(bv_communes_2022, by = join_by(CODGEO == code_insee))
+
+natio_metro <- natio_metro |>
+    pivot_longer(cols = !c(CODGEO, LIBGEO), names_to = "age_nat_sexe", values_to = "count") |>
+    separate_wider_delim(age_nat_sexe, delim = "_", names = c("age", "nat", "sexe")) |>
+    group_by(nat) %>% 
+    summarise(count = sum(count)) |>
+    mutate(etrangers = count / sum(count) * 100) |>
+    filter(nat %in% "INATC2") |> 
+    mutate(ID = "Métropole") |>
+    select(-nat, -count)
+
+demo_metro <- demo_metro %>% 
+    left_join(natio_metro, by = "ID")
+
+demo <- bind_rows(demo_metro, qpv_demo)
+
+graph <- demo %>% 
+    pivot_longer(cols = !ID, 
+                 names_to = "variable",
+                 values_to = "valeur") |>
+    mutate(variable = str_replace(variable, "partPop", ""),
+           variable = str_replace(variable, "_", " - "),
+           variable = case_when(variable %in% "75p" ~ "75 ans et +",
+                                variable %in% "etrangers" ~ "étrangers",
+                                TRUE ~ paste0(variable, " ans"))) |>
+    ggplot(aes(x = variable, y = valeur)) +
+        geom_bar(aes(fill = ID), stat = "identity", position = "dodge") +
+        labs(x = "",
+             y = "",
+         title = "La population des QPV compte plus de jeunes et plus d'étrangers",
+         caption = "Source : INSEE (recensement de la population 2019)") +
+    theme_classic() +
+    theme(legend.position = "bottom",
+          text = element_text(family = "Monserrat", size = 12),
+          plot.title = element_text(face = "bold"),
+          axis.title.y = element_blank(),
+          panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank()) +
+    scale_fill_manual(values = c("Métropole" = "wheat2", "QPV" = "brown3")) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(fill = "Territoire")
+graph
+saving_plot(graph, "population_age_etrangers", 7, 9)
+
+
+
 ```
 
 
@@ -446,11 +544,60 @@ violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
                   strip.text = element_text(color = "black", face = "bold"),
                   legend.position = "none",
                   axis.title.y = element_blank(),
-                  panel.grid.major.x = ggplot2::element_line(color = "#cbcbcb"),
-                  axis.line.y = element_blank(),
-                  axis.ticks.y = element_blank())
+                  panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+                  axis.line.x = element_blank(),
+                  axis.ticks.x = element_blank())
 }
 ```
+
+
+```{r function_barplot}
+
+barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
+    common_cols <- intersect(colnames(bv), colnames(qpv))
+    bv <- bv |> 
+        left_join(evolution_bv |> select(bureau_vote_id, perim_met), 
+                  by = 'bureau_vote_id')
+    bv_all <- bv |> as.data.frame() |> rename(old_id = id, id = bureau_vote_id) |> 
+      select(id, common_cols, -ends_with(c(".ins", ".exp"))) |> mutate(type = "Ensemble métropole") |> select(-geom)
+    qpv <- qpv |> as.data.frame() |> rename(id = CODE_QP) |> select(id, common_cols, -ends_with(c(".ins", ".exp"))) |> 
+      mutate(type = "Quartiers prioritaires") |> select(-geom)
+    bind_rows(bv_all, qpv)|> 
+        pivot_longer(cols = -c(id, type, Inscrits), values_to = "nb_pers", names_to = "vote") |> 
+        group_by(type, vote) |>
+        summarise(nb_pers = sum(nb_pers), Inscrits = sum(Inscrits)) |>
+        mutate(percent_inscrits = nb_pers/Inscrits*100,
+               order_false_percent = case_when(vote == "Abstentions" ~ 150,
+                                               vote == "Blancs" ~ 125,
+                                               vote == "Nuls" ~ 100,
+                                               .default = percent_inscrits),
+               vote = str_replace_all(vote, "\\.", " "),
+               # vote = toTitleCase(tolower(vote)),
+               vote = fct_relevel(vote, c("Abstentions", "Blancs", "Nuls", "ARTHAUD", "CHEMINADE", "POUTOU", "MÉLENCHON", "HAMON", "MACRON", "FILLON", "LASSALLE", "DUPONT AIGNAN", "ASSELINEAU", "LE PEN"))) |> 
+        filter(!vote %in% c("Votants", "Exprimés")) |>
+        ggplot(aes(x = vote, y = percent_inscrits, fill = type)) +
+            geom_bar(stat = "identity", position = "dodge") +
+            scale_y_continuous(limits=c(min_x, max_x)) +
+            scale_fill_manual(values = c("Ensemble métropole" = "wheat3", 
+                                         "Quartiers prioritaires" = "brown3")) +
+            labs(title = interpretation, 
+                 subtitle = paste0("Comparaison des votes en % des inscrits entre BV et QPV \n", elections), 
+                 caption = "Source: Données extraites des listes électorales et Cartelec, \nCéline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon en 2017 et 2022", y = "en % des inscrits") +
+            theme_classic() +
+            theme(plot.title = element_text(face = "bold"),
+                  plot.caption = element_text(face = "italic", hjust = 0),
+                  strip.text = element_text(color = "black", face = "bold"),
+                  legend.position = "none",
+                  axis.title.x = element_blank(),
+                  panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+                  axis.line.x = element_blank(),
+                  axis.ticks.x = element_blank()) +
+            labs(fill = "Territoire") 
+
+}
+
+```
+
 
 ### Pres.17 tour 1
 
@@ -501,6 +648,16 @@ graph
 saving_plot(graph, "violin_l22_t1", 7, 10)
 ```
 
+
+## Moyenne des votes{.tabset}
+
+### Pres.17 tour 1
+
+```{r fig.height=10}
+graph <- barplot_comp(bv_p17_t1, qpv_p17_t1, "au premier tour des présidentielles de 2017", "L'abstention est beaucoup plus élevée dans les QPV,\net le vote y est plus orienté à gauche.", 0, 40)
+graph
+saving_plot(graph, "bar_p17_t1", 7, 10)
+```
 
 
 

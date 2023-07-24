@@ -253,6 +253,18 @@ evolution_bv_qpv <- rbind(evolution_bv_longer |> filter(annee == "2017") |> rena
 #               plot.caption = element_text(face = "italic", hjust = 0),
 #               strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
 # version intéractive avec nb habitants et inscrits
+
+metropole <- st_read("https://data.grandlyon.com/geoserver/metropole-de-lyon/ows?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=metropole-de-lyon:adr_voie_lieu.adrmetropole&outputFormat=application/json&SRSNAME=EPSG:4171&sortBy=gid")
+
+contours_qpv <- mapview(qpv_p17_t1, 
+      layer.name = "QPV",
+      legend = FALSE,
+      map.types = "CartoDB.Positron") +
+    mapview(metropole, alpha.regions = 0.01,
+            legend = FALSE)
+
+mapshot(contours_qpv, url = "Save_cartos/carte_QPV_contours.html")
+
 p2017 <- evolution_bv_qpv |> 
     st_as_sf() |> 
     mapview(zcol = "type",
@@ -573,7 +585,7 @@ barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
                                                .default = percent_inscrits),
                vote = str_replace_all(vote, "\\.", " "),
                # vote = toTitleCase(tolower(vote)),
-               vote = fct_relevel(vote, c("Abstentions", "Blancs", "Nuls", "ARTHAUD", "CHEMINADE", "POUTOU", "MÉLENCHON", "HAMON", "MACRON", "FILLON", "LASSALLE", "DUPONT AIGNAN", "ASSELINEAU", "LE PEN"))) |> 
+               vote = fct_relevel(vote, rev(c("Abstentions", "Blancs", "Nuls", "ARTHAUD", "CHEMINADE", "POUTOU", "MÉLENCHON", "HAMON", "MACRON", "FILLON", "LASSALLE", "DUPONT AIGNAN", "ASSELINEAU", "LE PEN")))) |> 
         filter(!vote %in% c("Votants", "Exprimés")) |>
         ggplot(aes(x = vote, y = percent_inscrits, fill = type)) +
             geom_bar(stat = "identity", position = "dodge") +
@@ -582,17 +594,18 @@ barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
                                          "Quartiers prioritaires" = "brown3")) +
             labs(title = interpretation, 
                  subtitle = paste0("Comparaison des votes en % des inscrits entre BV et QPV \n", elections), 
-                 caption = "Source: Données extraites des listes électorales et Cartelec, \nCéline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon en 2017 et 2022", y = "en % des inscrits") +
+                 caption = "Source: Données extraites des listes électorales et Cartelec, \nCéline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon en 2017 et 2022", y = "en % des inscrits",
+                 fill = "Territoire") +
             theme_classic() +
             theme(plot.title = element_text(face = "bold"),
                   plot.caption = element_text(face = "italic", hjust = 0),
                   strip.text = element_text(color = "black", face = "bold"),
-                  legend.position = "none",
-                  axis.title.x = element_blank(),
-                  panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
-                  axis.line.x = element_blank(),
-                  axis.ticks.x = element_blank()) +
-            labs(fill = "Territoire") 
+                  legend.position = "bottom",
+                  axis.title.y = element_blank(),
+                  panel.grid.major.x = ggplot2::element_line(color = "#cbcbcb"),
+                  axis.line.y = element_blank(),
+                  axis.ticks.y = element_blank()) +
+            coord_flip()
 
 }
 

@@ -429,13 +429,13 @@ saving_plot(graph, "population_inscrits_votants", 7, 9)
 
 qpv_demo <- tribble(
     ~ID,                 ~partPop0_14, ~partPop15_24, ~partPop25_59, ~partPop60_74, ~partPop75p, ~etrangers,
-    "QPV",               26.5        , 14.1         , 41.4         , 11.8         , 6.3        , 26.3                     
+    "QPV",               0.265        , 0.141         , 0.414         , 0.118         , 0.063        , 0.263                     
 )
 
 # Métropole
 
-download.file("https://www.insee.fr/fr/statistiques/fichier/6456157/BTX_TD_POP1B_2019.zip", here("data", "BTX_TD_POP1B_2019.zip"))
-unzip(here("data", "BTX_TD_POP1B_2019.zip"), exdir = here("data"))
+# download.file("https://www.insee.fr/fr/statistiques/fichier/6456157/BTX_TD_POP1B_2019.zip", here("data", "BTX_TD_POP1B_2019.zip"))
+# unzip(here("data", "BTX_TD_POP1B_2019.zip"), exdir = here("data"))
 demo_metro <- readxl::read_xlsx(here("data", "BTX_TD_POP1B_2019.xlsx"), sheet = "COM", skip = 10)
 # filtre pour la métropole
 demo_metro <- demo_metro |>
@@ -457,15 +457,15 @@ demo_metro <- demo_metro |>
                                  TRUE ~ NA)) |>
     group_by(age_group) |>
     summarise(count = sum(count)) |>
-    mutate(part = count / sum(count) * 100) |>
+    mutate(part = count / sum(count)) |>
     select(-count) |>
     pivot_wider(names_from = age_group, values_from = part, names_prefix = "partPop") |>
     mutate(ID = "Métropole")
 
 # nationalité dans les communes de la métropole
-download.file("https://www.insee.fr/fr/statistiques/fichier/6454329/BTX_TD_NAT1_2019.zip", here("data", "BTX_TD_NAT1_2019.zip"))
-
-unzip(here("data", "BTX_TD_NAT1_2019.zip"), exdir = here("data"))
+# download.file("https://www.insee.fr/fr/statistiques/fichier/6454329/BTX_TD_NAT1_2019.zip", here("data", "BTX_TD_NAT1_2019.zip"))
+# 
+# unzip(here("data", "BTX_TD_NAT1_2019.zip"), exdir = here("data"))
 
 natio_metro <- readxl::read_xlsx(here("data", "BTX_TD_NAT1_2019.xlsx"), sheet = "COM", skip = 10)
 natio_metro <- natio_metro |>
@@ -476,7 +476,7 @@ natio_metro <- natio_metro |>
     separate_wider_delim(age_nat_sexe, delim = "_", names = c("age", "nat", "sexe")) |>
     group_by(nat) %>% 
     summarise(count = sum(count)) |>
-    mutate(etrangers = count / sum(count) * 100) |>
+    mutate(etrangers = count / sum(count)) |>
     filter(nat %in% "INATC2") |> 
     mutate(ID = "Métropole") |>
     select(-nat, -count)
@@ -504,7 +504,6 @@ graph <- demo %>%
     theme_classic() +
     theme(legend.position = "bottom",
           text = element_text(family = "Monserrat", size = 12),
-          plot.title = element_text(face = "bold"),
           axis.title.y = element_blank(),
           panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
           axis.line.y = element_blank(),

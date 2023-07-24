@@ -6,7 +6,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
     rmarkdown::html_document:
       #number_sections: true
-      #self_contained: false
+      self_contained: false
       theme: paper
       toc: true
       toc_depth: 4
@@ -227,6 +227,17 @@ plot(inter_bv, add = TRUE, col = 'red')
 
 ## Localisation des QPV
 
+```{r include=FALSE}
+# Import données externes
+pop_qpv <- st_read(here("output_data", "data_pop_qpv_2018.csv"))
+pop_communes <- read_delim("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/demographyref-france-pop-legale-commune-arrondissement-municipal/exports/csv?lang=fr&facet=facet(name%3D%22reg_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22arrdep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_name%22%2C%20disjunctive%3Dtrue)&refine=dep_code%3A%2269%22&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B", ";") |> 
+  mutate(code_insee = as.character(`Code Officiel Commune / Arrondissement Municipal`))
+pop_communes_select <- pop_communes |> 
+    select(code_insee, `Population municipale`) |> 
+    rename(Population = `Population municipale`)
+```
+
+
 ```{r localisation QPV, echo=FALSE}
 # Prépa données
 evolution_bv_qpv <- rbind(evolution_bv_longer |> filter(annee == "2017") |> rename(id = bureau_vote_id) |> 
@@ -296,15 +307,6 @@ mapshot(p2022, url = "Save_cartos/carte_QPV_2022.html")
 
 ## Population, inscrits, votants{.tabset}
 
-```{r include=FALSE}
-# Import données externes
-pop_qpv <- st_read(here("output_data", "data_pop_qpv_2018.csv"))
-pop_communes <- read_delim("https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/demographyref-france-pop-legale-commune-arrondissement-municipal/exports/csv?lang=fr&facet=facet(name%3D%22reg_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22reg_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22com_arm_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22arrdep_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_name%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22epci_code%22%2C%20disjunctive%3Dtrue)&facet=facet(name%3D%22dep_name%22%2C%20disjunctive%3Dtrue)&refine=dep_code%3A%2269%22&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B", ";") |> 
-  mutate(code_insee = as.character(`Code Officiel Commune / Arrondissement Municipal`))
-pop_communes_select <- pop_communes |> 
-    select(code_insee, `Population municipale`) |> 
-    rename(Population = `Population municipale`)
-```
 
 
 

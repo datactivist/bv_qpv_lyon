@@ -238,7 +238,7 @@ pop_communes_select <- pop_communes |>
 ```
 
 
-```{r localisation QPV, echo=FALSE}
+```{r localisation_QPV, echo=FALSE}
 # Prépa données
 evolution_bv_qpv <- rbind(evolution_bv_longer |> filter(annee == "2017") |> rename(id = bureau_vote_id) |> 
                               mutate(type = "Bureaux de vote") |> select(id, type, annee, geom),
@@ -265,7 +265,7 @@ evolution_bv_qpv <- rbind(evolution_bv_longer |> filter(annee == "2017") |> rena
 #               strip.text = element_text(face = "bold", size = 12, margin = margin(20,0,0,0)))
 # version intéractive avec nb habitants et inscrits
 
-metropole <- st_read("https://data.grandlyon.com/geoserver/metropole-de-lyon/ows?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=metropole-de-lyon:adr_voie_lieu.adrmetropole&outputFormat=application/json&SRSNAME=EPSG:4171&sortBy=gid")
+metropole <- st_read("https://data.grandlyon.com/geoserver/metropole-de-lyon/ows?SERVICE=WFS&VERSION=2.0.0&request=GetFeature&typename=metropole-de-lyon:adr_voie_lieu.adrmetropole&outputFormat=application/json&SRSNAME=EPSG:4171&sortBy=gid", quiet = TRUE)
 
 contours_qpv <- mapview(metropole, alpha.regions = 0.01,
             legend = FALSE,
@@ -278,7 +278,7 @@ contours_qpv <- mapview(metropole, alpha.regions = 0.01,
       legend = FALSE,
       map.types = "CartoDB.Positron",
       homebutton = FALSE) 
-
+contours_qpv
 mapshot(contours_qpv, url = "Save_cartos/carte_QPV_contours.html")
 
 p2017 <- evolution_bv_qpv |> 

@@ -571,7 +571,7 @@ violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
 
 ```{r function_barplot}
 
-barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
+barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x, facteurs = rev(c("Abstentions", "Blancs", "Nuls", "ARTHAUD", "CHEMINADE", "POUTOU", "MÉLENCHON", "HAMON", "MACRON", "FILLON", "LASSALLE", "DUPONT AIGNAN", "ASSELINEAU", "LE PEN"))){
     common_cols <- intersect(colnames(bv), colnames(qpv))
     bv <- bv |> 
         left_join(evolution_bv |> select(bureau_vote_id, perim_met), 
@@ -591,7 +591,7 @@ barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
                                                .default = percent_inscrits),
                vote = str_replace_all(vote, "\\.", " "),
                # vote = toTitleCase(tolower(vote)),
-               vote = fct_relevel(vote, rev(c("Abstentions", "Blancs", "Nuls", "ARTHAUD", "CHEMINADE", "POUTOU", "MÉLENCHON", "HAMON", "MACRON", "FILLON", "LASSALLE", "DUPONT AIGNAN", "ASSELINEAU", "LE PEN")))) |> 
+               vote = fct_relevel(vote, facteurs)) |> 
         filter(!vote %in% c("Votants", "Exprimés")) |>
         ggplot(aes(x = vote, y = percent_inscrits, fill = type)) +
             geom_bar(stat = "identity", position = "dodge") +
@@ -678,7 +678,29 @@ graph
 saving_plot(graph, "bar_p17_t1", 7, 10)
 ```
 
+### Pres.17 tour 2
 
+```{r fig.height=10}
+graph <- barplot_comp(bv_p17_t2, qpv_p17_t2, "au second tour des présidentielles de 2017", "L'abstention est beaucoup plus élevée dans les QPV,\net le vote pour Macron plus faible.", 0, 60, facteurs = rev(c("Abstentions", "Blancs", "Nuls", "MACRON","LE PEN")))
+graph
+saving_plot(graph, "bar_p17_t2", 7, 10)
+```
+
+### Pre.22 tour 1
+
+```{r fig.height=10}
+graph <- barplot_comp(bv_p22_t1, qpv_p22_t1, "au premier tour de l'élection présidentielle de 2022", "L'abstention est beaucoup plus élevée dans les QPV, et le vote pour Mélenchon également. \nTous les autres votes y sont plus faibles.", 0, 40, facteurs = rev(c("Abstentions", "Blancs", "Nuls", "ARTHAUD","POUTOU", "MÉLENCHON", "ROUSSEL", "HIDALGO", "JADOT", "MACRON", "PÉCRESSE", "LASSALLE", "DUPONT AIGNAN", "LE PEN", "ZEMMOUR")))
+graph
+saving_plot(graph, "bar_p22_t1", 7, 10)
+```
+
+### Pre.22 tour 2
+
+```{r fig.height=10}
+graph <- barplot_comp(bv_p22_t2, qpv_p22_t2, "au second tour de l'élection présidentielle de 2022", "L'abstention est beaucoup plus élevée dans les QPV. Le vote pour Macron est inférieur à ce qui est observé dans le reste de la Métropole.", 0, 60, facteurs = rev(c("Abstentions", "Blancs", "Nuls", "MACRON", "LE PEN")))
+graph
+saving_plot(graph, "bar_p22_t2", 7, 10)
+```
 
 ## Cartographies des votes{.tabset}
 

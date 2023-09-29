@@ -328,25 +328,25 @@ graph <- rbind(
         left_join(pop_qpv |> select(codeQPV, popMuniQPV),
                           by = c("CODE_QP" = "codeQPV")) |> 
         select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
-        mutate(type = "Présidentielles 2017 tour 1") |> 
+        mutate(type = "Présidentielle 2017 tour 1") |> 
         rename(id = CODE_QP, Population = popMuniQPV),
       qpv_p22_t1 |> 
         left_join(pop_qpv |> select(codeQPV, popMuniQPV),
                           by = c("CODE_QP" = "codeQPV")) |> 
         select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
-        mutate(type = "Présidentielles 2022 tour 1") |> 
+        mutate(type = "Présidentielle 2022 tour 1") |> 
         rename(id = CODE_QP, Population = popMuniQPV),
       qpv_p17_t2 |> 
         left_join(pop_qpv |> select(codeQPV, popMuniQPV),
                           by = c("CODE_QP" = "codeQPV")) |> 
         select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
-        mutate(type = "Présidentielles 2017 tour 2") |> 
+        mutate(type = "Présidentielle 2017 tour 2") |> 
         rename(id = CODE_QP, Population = popMuniQPV),
       qpv_p22_t2 |> 
         left_join(pop_qpv |> select(codeQPV, popMuniQPV),
                           by = c("CODE_QP" = "codeQPV")) |> 
         select(CODE_QP, popMuniQPV, Inscrits, Votants) |> 
-        mutate(type = "Présidentielles 2022 tour 2") |> 
+        mutate(type = "Présidentielle 2022 tour 2") |> 
         rename(id = CODE_QP, Population = popMuniQPV)) |> 
   group_by(type) |> 
   mutate(Population = sum(as.numeric(Population), na.rm = T),
@@ -368,16 +368,16 @@ graph <- rbind(
             mutate(type = "Législatives 2022 tour 1", Population = 1411570) |> 
             select(code_insee, Population, Inscrits, Votants, type),
           bv_p17_t1 |> 
-            mutate(type = "Présidentielles 2017 tour 1", Population = 1386000) |> 
+            mutate(type = "Présidentielle 2017 tour 1", Population = 1386000) |> 
             select(code_insee, Population, Inscrits, Votants, type),
           bv_p22_t1 |> 
-            mutate(type = "Présidentielles 2022 tour 1", Population = 1411570) |> 
+            mutate(type = "Présidentielle 2022 tour 1", Population = 1411570) |> 
             select(code_insee, Population, Inscrits, Votants, type),
           bv_p17_t2 |> 
-            mutate(type = "Présidentielles 2017 tour 2", Population = 1386000) |> 
+            mutate(type = "Présidentielle 2017 tour 2", Population = 1386000) |> 
             select(code_insee, Population, Inscrits, Votants, type),
           bv_p22_t2 |> 
-            mutate(type = "Présidentielles 2022 tour 2", Population = 1411570) |> 
+            mutate(type = "Présidentielle 2022 tour 2", Population = 1411570) |> 
             select(code_insee, Population, Inscrits, Votants, type)) |> 
       group_by(type) |> 
       mutate(Inscrits = sum(Inscrits, na.rm = T),
@@ -390,13 +390,13 @@ graph <- rbind(
       mutate(percent = nb/total*100,
          percent_lbl = paste0(round(percent), " %"),
          compte = fct_reorder(compte, nb, .desc = TRUE),
-         scope = "Tous BV")
+         scope = "Tous les bureaux de vote")
 ) |>
     ggplot(aes(x = compte, y = percent)) +
-    geom_bar(aes(fill = factor(scope, levels = c("Tous BV", "QPV"))), stat = "identity", position = position_dodge(), width = .6) +
+    geom_bar(aes(fill = factor(scope, levels = c("Tous les bureaux de vote", "QPV"))), stat = "identity", position = position_dodge(), width = .6) +
     labs(x = "",
          title = "Le poids des votants dans la population est systématiquement\nplus faible dans les QPV", 
-         caption = "Sources : INSEE (recensement de la population 2018), Ministère de l'intérieur.") +
+         caption = "Sources : INSEE (recensement de la population 2018), ministère de l'intérieur.") +
     theme_classic() +
     theme(legend.position = "bottom",
           text = element_text(family = "Monserrat", size = 12),
@@ -405,12 +405,13 @@ graph <- rbind(
           panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
           axis.line.y = element_blank(),
           axis.ticks.y = element_blank()) +
-    scale_fill_manual(values = c("Tous BV" = "wheat2", "QPV" = "brown3")) +
+    scale_fill_manual(values = c("Tous les bureaux de vote" = "wheat2", "QPV" = "brown3")) +
     facet_wrap(~type, ncol = 2, scales='free') +
     scale_y_continuous(labels = scales::comma) +
-    labs(fill = "Territoire")
+    labs(fill = "")
 graph
 saving_plot(graph, "population_inscrits_votants", 7, 9)
+ggsave(file = "Save_graphs/population_inscrits_votants.svg", plot=graph, width=7, height=9)
 ```
 
 
@@ -510,12 +511,9 @@ graph <- demo %>%
           axis.ticks.y = element_blank()) +
     scale_fill_manual(values = c("Métropole" = "wheat2", "QPV" = "brown3")) +
     scale_y_continuous(labels = scales::percent) +
-    labs(fill = "Territoire")
+    labs(fill = "")
 graph
 saving_plot(graph, "population_age_etrangers", 7, 9)
-
-
-
 ```
 
 
@@ -541,7 +539,23 @@ violinplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x){
                                                vote == "Nuls" ~ 100,
                                                .default = percent_inscrits),
                vote = str_replace_all(vote, "\\.", " "),
-               # vote = toTitleCase(tolower(vote)),
+               vote = toTitleCase(tolower(vote)),
+               vote = str_replace_all(vote, c("Macron" = "E. Macron",
+                                              "Fillon" = "F.Fillon",
+                                              "Mélenchon" = "JL. Mélenchon",
+                                              "Le Pen" = "M. Le Pen",
+                                              "Hamon" = "B. Hamon",
+                                              "Dupont Aignan" = "N. Dupont-Aignan",
+                                              "Asselineau" = "F. Asselineau",
+                                              "Poutou" = "P. Poutou",
+                                              "Lassalle" = "J. Lassalle",
+                                              "Arthaud" = "N. Arthaud",
+                                              "Cheminade" = "J. Cheminade",
+                                              "Zemmour" = "E. Zemmour",
+                                              "Jadot" = "Y. Jadot",
+                                              "Pécresse" = "V. Pécresse",
+                                              "Hidalgo" = "A. Hidalgo",
+                                              "Roussel" = "F. Roussel")),
                vote = fct_reorder(vote, order_false_percent, .desc = T)) |> 
         filter(!vote %in% c("Votants", "Exprimés")) |>
         ggplot(aes(x = type, y = percent_inscrits, fill = type)) +
@@ -590,7 +604,23 @@ barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x, facte
                                                vote == "Nuls" ~ 100,
                                                .default = percent_inscrits),
                vote = str_replace_all(vote, "\\.", " "),
-               # vote = toTitleCase(tolower(vote)),
+               vote = toTitleCase(tolower(vote)),
+               vote = str_replace_all(vote, c("Macron" = "E. Macron",
+                                              "Fillon" = "F.Fillon",
+                                              "Mélenchon" = "JL. Mélenchon",
+                                              "Le Pen" = "M. Le Pen",
+                                              "Hamon" = "B. Hamon",
+                                              "Dupont Aignan" = "N. Dupont-Aignan",
+                                              "Asselineau" = "F. Asselineau",
+                                              "Poutou" = "P. Poutou",
+                                              "Lassalle" = "J. Lassalle",
+                                              "Arthaud" = "N. Arthaud",
+                                              "Cheminade" = "J. Cheminade",
+                                              "Zemmour" = "E. Zemmour",
+                                              "Jadot" = "Y. Jadot",
+                                              "Pécresse" = "V. Pécresse",
+                                              "Hidalgo" = "A. Hidalgo",
+                                              "Roussel" = "F. Roussel")),
                vote = fct_relevel(vote, facteurs)) |> 
         filter(!vote %in% c("Votants", "Exprimés")) |>
         ggplot(aes(x = vote, y = percent_inscrits, fill = type)) +
@@ -599,9 +629,9 @@ barplot_comp <- function(bv, qpv, elections, interpretation, min_x, max_x, facte
             scale_fill_manual(values = c("Ensemble métropole" = "wheat3", 
                                          "Quartiers prioritaires" = "brown3")) +
             labs(title = interpretation, 
-                 subtitle = paste0("Comparaison des votes en % des inscrits entre BV et QPV \n", elections), 
+                 subtitle = paste0("Comparaison des votes en % des inscrits entre l'ensemble de la métropole et \nles QPV ", elections), 
                  caption = "Source: Données extraites des listes électorales et Cartelec, \nCéline COLANGE ©UMR CNRS 6266 IDEES, Université de Rouen \nRéalisation: Gombin J., Thierry D. Analyse du vote des QPV de la métropole de Lyon en 2017 et 2022", y = "en % des inscrits",
-                 fill = "Territoire") +
+                 fill = "") +
             theme_classic() +
             theme(plot.title = element_text(face = "bold"),
                   plot.caption = element_text(face = "italic", hjust = 0),
@@ -1037,7 +1067,7 @@ var_supp_qpv <- full_join(var_supp_pre_qpv, var_supp_leg_qpv, by = 'CODE_QP')
 var_acp_qpv <- full_join(var_actives_qpv, var_supp_qpv, by = 'CODE_QP') |> 
     rename_with(~ str_replace(., "[\\._]ins", "")) |>
     column_to_rownames("CODE_QP")
-ensemble <- rbind(var_acp |> mutate(type = "Tous BV"),
+ensemble <- rbind(var_acp |> mutate(type = "Tous les bureaux de vote"),
                   var_acp_qpv |> mutate(type = "QPV"))
 ```
 
@@ -1070,8 +1100,8 @@ graph <- left_join(ensemble |> select(type) |> rownames_to_column(),
                                  paste0("BV n°", rowname)))) +
     stat_ellipse(aes(x = Dim.1, y = Dim.2, group = type, color = type, fill = type), type = "norm") +
     theme_minimal() +
-    scale_color_manual(name = "", values = c("Tous BV" = "wheat2", "QPV" = "brown3")) +
-    scale_fill_manual(name = "", values = c("Tous BV" = "wheat2", "QPV" = "brown3")) +
+    scale_color_manual(name = "", values = c("Tous les bureaux de vote" = "wheat2", "QPV" = "brown3")) +
+    scale_fill_manual(name = "", values = c("Tous les bureaux de vote" = "wheat2", "QPV" = "brown3")) +
     geom_hline(aes(yintercept = 0), linetype = "dashed") +
     geom_vline(aes(xintercept = 0), linetype = "dashed") +
     geom_text(aes(x = 13, y = 0), hjust = 0.5, label = "Abstention", label.size = NA, size = 4) +
@@ -1083,10 +1113,17 @@ graph <- left_join(ensemble |> select(type) |> rownames_to_column(),
     coord_flip() +
     scale_x_continuous(trans = "reverse") +
     labs(x = "Dimension 1 (29.1%)", y = "Dimension 2 (19.1%)",
-         title = "Projection des BV et QPV sur les deux premières dimensions") +
+         title = "Projection des bureaux de vote et QPV sur les deux premières dimensions") +
     guides(fill = "none", shape = "none", alpha = "none", 
            color = guide_legend(label.vjust = 1)) 
 ggplty <- ggplotly(graph, tooltip = "text")
+
+for (i in 1:length(ggplty$x$data)){
+    if (!is.null(ggplty$x$data[[i]]$name)){
+        ggplty$x$data[[i]]$name =  gsub("\\(","",str_split(ggplty$x$data[[i]]$name,",")[[1]][1])
+    }
+}
+
 ggplty
 htmlwidgets::saveWidget(
                 widget = ggplty, #the plotly object
